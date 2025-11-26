@@ -1,3 +1,5 @@
+from pymxs import runtime as rt
+
 def GetOrientation(left_pos, right_pos):
     # Cauculate the orientation
     diff = [r - l for l, r in zip(left_pos, right_pos)]
@@ -65,9 +67,9 @@ def GetRotateAngle(face_vec_current, head_vec_current, face_vec_target, head_vec
                 step2_angle = tuple(-90 * item for item in rot_axis)
     return step1_angle, step2_angle
 
-current_hands = [rt.getNodeByName('Wrist_L'), rt.getNodeByName('Wrist_R')]
-target_hands = [rt.getNodeByName('Hand3L'), rt.getNodeByName('Hand3R')]
-current_base = rt.getNodeByName('')
+current_hands = [rt.getNodeByName('Wrist_L'), rt.getNodeByName('Wrist_R')]  # Hand bone of MMD
+target_hands = [rt.getNodeByName('Hand3L'), rt.getNodeByName('Hand3R')]  # Hand bone of GOH
+current_base = rt.getNodeByName('')  # Base bone of MMD
 # target_base = rt.getNodeByName('')
 
 # HOW TO GET THE POSITION?
@@ -80,3 +82,4 @@ step1_angle, step2_angle = GetRotateAngle(face_vec_current, head_vec_current, fa
 
 rt.rotate(current_base, rt.eulerangles(step1_angle[0], step1_angle[1], step1_angle[2]))
 rt.rotate(current_base, rt.eulerangles(step2_angle[0], step2_angle[1], step2_angle[2]))
+
