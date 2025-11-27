@@ -1,6 +1,8 @@
 from pymxs import runtime as rt
 
-BASE_BONE_MMD = ''
+BASE_BONE_MMD = ''  # Base bone of MMD
+HAND_BONE_MMD = ['Wrist_L', 'Wrist_R']  # Hand bone of MMD
+HAND_BONE_GOH = ['Hand3L', 'Hand3R']  # Hand bone of GOH
 
 def GetOrientation(left_pos, right_pos):
     # Cauculate the orientation
@@ -69,8 +71,8 @@ def GetRotateAngle(face_vec_current, head_vec_current, face_vec_target, head_vec
                 step2_angle = tuple(-90 * item for item in rot_axis)
     return step1_angle, step2_angle
 
-current_hands = [rt.getNodeByName('Wrist_L'), rt.getNodeByName('Wrist_R')]  # Hand bone of MMD
-target_hands = [rt.getNodeByName('Hand3L'), rt.getNodeByName('Hand3R')]  # Hand bone of GOH
+current_hands = [rt.getNodeByName(HAND_BONE_MMD[0]), rt.getNodeByName(HAND_BONE_MMD[1])]  # Hand bone of MMD
+target_hands = [rt.getNodeByName(HAND_BONE_GOH[0]), rt.getNodeByName(HAND_BONE_GOH[1])]  # Hand bone of GOH
 current_base = rt.getNodeByName(BASE_BONE_MMD)  # Base bone of MMD
 
 current_hands_pos = [current_hands[0].pos, current_hands[1].pos]
@@ -82,5 +84,6 @@ step1_angle, step2_angle = GetRotateAngle(face_vec_current, head_vec_current, fa
 
 rt.rotate(current_base, rt.eulerangles(step1_angle[0], step1_angle[1], step1_angle[2]))
 rt.rotate(current_base, rt.eulerangles(step2_angle[0], step2_angle[1], step2_angle[2]))
+
 
 
