@@ -13,6 +13,18 @@
 * Remove "ControlNode" and all childs.
 * Remove all nodes endswith "_end"
 
+### Aligning steps
+* Overall scale and alignment
+  * Scale the whole model by the height of shoulder (Clavicle_left:ShoulderP_L) (DONE)
+  * Align the whole model center by the median point of first leg bones (LegD_L,LegD_R, Leg_L, Leg_R : foot1R, foot1L) (TODO)
+* Lower body alignment
+  * Align the rotation of the upper leg bones (LegD_L,LegD_R, Leg_L, Leg_R : foot1R, foot1L) (TODO)
+  * Resize the upper leg to make the upper leg length same (TODO)
+  * Same to the lower leg bones
+  * Resize and rotate the foot according to parents, to make the foot's scale identical 1\:1\:1, rotation unchanged.
+* Upperbody alignment
+  * TODO
+
 ### Skeleton structure
 * Root Body
 * UpperLegR: ["foot1R", "foot2R"]
