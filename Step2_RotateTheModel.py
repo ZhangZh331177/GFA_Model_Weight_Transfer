@@ -2,7 +2,7 @@ from pymxs import runtime as rt
 
 BASE_BONE_MMD = ''  # Base bone of MMD
 HAND_BONE_MMD = ['Wrist_L', 'Wrist_R']  # Hand bone of MMD
-HAND_BONE_GOH = ['Hand3L', 'Hand3R']  # Hand bone of GOH
+HAND_BONE_GOH = ['GFA_MWT_SKE_Hand3L', 'GFA_MWT_SKE_Hand3R']  # Hand bone of GOH
 
 def GetOrientation(left_pos, right_pos):
     # Cauculate the orientation
