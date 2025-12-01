@@ -22,17 +22,18 @@ def GetProjectedRotationOfPos(Pos1, Pos2, Plane):
     # It is used to generate nearest rotation only to align the projection in specific axis
     DirectonVec = Pos2 - Pos1
     if Plane == "XY":
-        return -math.degrees(math.atan2(DirectonVec.x, DirectonVec.u))
-        # return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.x**2 + DirectonVec.y **2) ** 0.5)))
+        angle = math.degrees(math.atan2(DirectonVec.y, DirectonVec.x))
     elif Plane == "YZ":
-        return -math.degrees(math.atan2(DirectonVec.y, DirectonVec.z))
-        # return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.y**2 + DirectonVec.z **2) ** 0.5)))
+        angle = math.degrees(math.atan2(DirectonVec.z, DirectonVec.y))
     elif Plane == "XZ":
-        return -math.degrees(math.atan2(DirectonVec.x, DirectonVec.z))
-        # return math.degrees(math.asin(DirectonVec.x / ((DirectonVec.x**2 + DirectonVec.z **2) ** 0.5)))
+        angle = math.degrees(math.atan2(DirectonVec.z, DirectonVec.x))
     else:
         raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is "+Plane+"!")
-
+    
+    if angle < 0:
+        angle += 360
+    
+    return angle
 
 def GetProjectedRotation(Object1, Object2, Plane):
     # This function is not designed to get precise rotation.
@@ -44,11 +45,11 @@ def GetVectorLength(MaxVector):
 
 def ApplyRotationOnPlane(TargetBone, Angle, Plane):
     if Plane == "XY":
-        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, -Angle))
     elif Plane == "YZ":
         rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
     elif Plane == "XZ":
-        rt.rotate(TargetBone, rt.eulerangles(0, Angle, 0))
+        rt.rotate(TargetBone, rt.eulerangles(0, -Angle, 0))
     else:
         raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is '"+Plane+"'!")
 
@@ -143,7 +144,7 @@ def GetProjectionLength(Pos1, Pos2):
 
 
 # Parameter
-MMD_RootName = "GirlsFrontline AlvaDefault"
+MMD_RootName = "Mixueer"
 MMD_Root = GetNodeByNameRaiser(MMD_RootName)
 
 # These Names SHOULD be fixed in different run
