@@ -1,8 +1,15 @@
 import math
 from pymxs import runtime as rt
 
+def GetNodeByNameRaiser(InputNodeName):
+    TargetNode = rt.getNodeByName(InputNodeName)
+    if TargetNode == None:
+        raise ValueError("Trying to GetNodeByName on an Unknown Name: [" + InputNodeName + "]!")
+    else:
+        return TargetNode
+
 def GetPosFromNodeName(InputNodeName):
-    return rt.getNodeByName(InputNodeName).pos
+    return GetNodeByNameRaiser(InputNodeName).pos
 
 def GetMeanPoseFromNodeNameList(InputNodeNameList):
     NodePosList = list()
@@ -15,11 +22,14 @@ def GetProjectedRotationOfPos(Pos1, Pos2, Plane):
     # It is used to generate nearest rotation only to align the projection in specific axis
     DirectonVec = Pos2 - Pos1
     if Plane == "XY":
-        return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.x**2 + DirectonVec.y **2) ** 0.5)))
+        return -math.degrees(math.atan2(DirectonVec.x, DirectonVec.u))
+        # return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.x**2 + DirectonVec.y **2) ** 0.5)))
     elif Plane == "YZ":
-        return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.y**2 + DirectonVec.z **2) ** 0.5)))
+        return -math.degrees(math.atan2(DirectonVec.y, DirectonVec.z))
+        # return math.degrees(math.asin(DirectonVec.y / ((DirectonVec.y**2 + DirectonVec.z **2) ** 0.5)))
     elif Plane == "XZ":
-        return math.degrees(math.asin(DirectonVec.x / ((DirectonVec.x**2 + DirectonVec.z **2) ** 0.5)))
+        return -math.degrees(math.atan2(DirectonVec.x, DirectonVec.z))
+        # return math.degrees(math.asin(DirectonVec.x / ((DirectonVec.x**2 + DirectonVec.z **2) ** 0.5)))
     else:
         raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is "+Plane+"!")
 
@@ -47,13 +57,15 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     # Make two bones's projection on target plane parallel.
     
     # Get Rotation difference
-    RotatingBoneStart = rt.getNodeByName(RotatingBone[0])
-    RotatingBoneEnd = rt.getNodeByName(RotatingBone[1])
+    RotatingBoneStart = GetNodeByNameRaiser(RotatingBone[0])
+    RotatingBoneEnd = GetNodeByNameRaiser(RotatingBone[1])
     RotatingBoneProjectedRotation = GetProjectedRotation(RotatingBoneStart, RotatingBoneEnd, Plane)
+    print(RotatingBoneProjectedRotation)
 
-    TargetBoneStart = rt.getNodeByName(TargetBone[0])
-    TargetBoneEnd = rt.getNodeByName(TargetBone[1])
+    TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
+    TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
     TargetBoneProjectedRotation = GetProjectedRotation(TargetBoneStart, TargetBoneEnd, Plane)
+    print(TargetBoneProjectedRotation)
 
     RotationDiff = TargetBoneProjectedRotation - RotatingBoneProjectedRotation
     # Apply Rotation
@@ -64,12 +76,12 @@ def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength 
     OtherAxisScaleFactor = 0.5
 
     # Get Length Difference
-    ScalingBoneStart = rt.getNodeByName(ScalingBone[0])
-    ScalingBoneEnd = rt.getNodeByName(ScalingBone[1])
+    ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
+    ScalingBoneEnd = GetNodeByNameRaiser(ScalingBone[1])
     ScalingBoneVector = ScalingBoneEnd.pos - ScalingBoneStart.pos
 
-    TargetBoneStart = rt.getNodeByName(TargetBone[0])
-    TargetBoneEnd = rt.getNodeByName(TargetBone[1])
+    TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
+    TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
     TargetBoneVector = TargetBoneEnd.pos - TargetBoneStart.pos
     
     if UseProjectionLength:
@@ -97,7 +109,7 @@ def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength 
 
 def NormalizeScale(InputBoneName):
     # Rescale the input bone to restore 1:1:1 scaling, use geometric mean
-    InputBone = rt.getNodeByName(InputBoneName)
+    InputBone = GetNodeByNameRaiser(InputBoneName)
     InputBoneParent = InputBone.parent
     InputBone.parent = None
     CurrentScale = InputBone.scale
@@ -134,7 +146,7 @@ def GetProjectionLength(Pos1, Pos2):
 
 # Parameter
 MMD_RootName = "GirlsFrontline AlvaDefault"
-MMD_Root = rt.getNodeByName(MMD_RootName)
+MMD_Root = GetNodeByNameRaiser(MMD_RootName)
 
 # These Names SHOULD be fixed in different run
 
@@ -236,7 +248,7 @@ ApplyRotationOnPlane(MMD_Root, UpperBodyDirectionDiff, UpperBodyAlignmentPlane)
 MMD_Root.pos = MMD_Root.pos + (MMD_UpperBodySourcePos - GetMeanPoseFromNodeNameList(MMD_UpperBodySourceList))
 ### Rotate legs to Re-Align
 for BoneName in MMD_UpperBodySourceList + MMD_UpperBodySourceDList:
-    ApplyRotationOnPlane(rt.getNodeByName(BoneName), -UpperBodyDirectionDiff, UpperBodyAlignmentPlane)
+    ApplyRotationOnPlane(GetNodeByNameRaiser(BoneName), -UpperBodyDirectionDiff, UpperBodyAlignmentPlane)
 
 ## Distribute rotation and position to the chain
 
@@ -258,9 +270,9 @@ for i in range(1, len(MMD_UpperBodyChain)):
     CurrentStepStartBones = list()
     CurrentStepEndBones = list()
     for BoneName in MMD_UpperBodyChain[i-1]:
-        CurrentStepStartBones.append(rt.getNodeByName(BoneName))
+        CurrentStepStartBones.append(GetNodeByNameRaiser(BoneName))
     for BoneName in MMD_UpperBodyChain[i]:
-        CurrentStepEndBones.append(rt.getNodeByName(BoneName))
+        CurrentStepEndBones.append(GetNodeByNameRaiser(BoneName))
     CurrentStepVector = CurrentStepEndPos - CurrentStepStartPos
     CurrentStepWeightRaw = GetProjectionLength(CurrentStepVector, UpperBodyOverAllVector)
 
@@ -275,7 +287,7 @@ for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBod
 
 #### Also BackRotate the neck with the shoulder
 ShoulderWeight = UpperBodySteps[-1][-1] / TotalWeight
-ApplyRotationOnPlane(rt.getNodeByName(MMD_NeckBoneName), -(UpperBodyDirectionDiff * ShoulderWeight), UpperBodyAlignmentPlane)
+ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_NeckBoneName), -(UpperBodyDirectionDiff * ShoulderWeight), UpperBodyAlignmentPlane)
 
 ### Distribute scaling
 #### Recacluate the Scale needed
@@ -317,7 +329,7 @@ for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBod
 ### Apply Final offset
 UpperBodyOffsetCollected = GetMeanPoseFromNodeNameList(GOH_UpperBodyTargetList) - GetMeanPoseFromNodeNameList(MMD_UpperBodyTargetList)
 for CurrentBoneName in MMD_UpperBodyTargetList:
-    CurrentBone = rt.getNodeByName(CurrentBoneName)
+    CurrentBone = GetNodeByNameRaiser(CurrentBoneName)
     CurrentBone.pos = CurrentBone.pos + UpperBodyOffsetCollected
 #### Also Apply to neck
-rt.getNodeByName(MMD_NeckBoneName).pos = rt.getNodeByName(GOH_NeckBoneName).pos
+GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(GOH_NeckBoneName).pos
