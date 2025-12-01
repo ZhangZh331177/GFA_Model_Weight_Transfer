@@ -60,12 +60,10 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     RotatingBoneStart = GetNodeByNameRaiser(RotatingBone[0])
     RotatingBoneEnd = GetNodeByNameRaiser(RotatingBone[1])
     RotatingBoneProjectedRotation = GetProjectedRotation(RotatingBoneStart, RotatingBoneEnd, Plane)
-    print(RotatingBoneProjectedRotation)
 
     TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
     TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
     TargetBoneProjectedRotation = GetProjectedRotation(TargetBoneStart, TargetBoneEnd, Plane)
-    print(TargetBoneProjectedRotation)
 
     RotationDiff = TargetBoneProjectedRotation - RotatingBoneProjectedRotation
     # Apply Rotation
