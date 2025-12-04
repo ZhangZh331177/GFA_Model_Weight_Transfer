@@ -393,6 +393,112 @@ for CurrentBoneName in MMD_UpperBodyTargetList:
 GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(GOH_NeckBoneName).pos
 
 #### Align shoulder here
+GOH_ShoulderLeftName = "GFA_MWT_SKE_Hand1L"
+GOH_ShoulderRightName = "GFA_MWT_SKE_Hand1R"
+MMD_ShoulderLeftName = "ShoulderC_L"
+MMD_ShoulderRightName = "ShoulderC_R"
+MMD_LowerBodyName = "LowerBody"
+
+ShoulderScaleBones = ["UpperBody", "UpperBody2"]
+ShoulderScaleBonesTotalAmount = 0.667 # Ratio ** This amount
+ShoulderScaleBonesLowerBodyAmount = 0.333 # Ratio ** This amount
+
+GOH_ShoulderLeft = GetNodeByNameRaiser(GOH_ShoulderLeftName)
+GOH_ShoulderRight = GetNodeByNameRaiser(GOH_ShoulderRightName)
+MMD_ShoulderLeft = GetNodeByNameRaiser(MMD_ShoulderLeftName)
+MMD_ShoulderRight = GetNodeByNameRaiser(MMD_ShoulderRightName)
+
+GOH_ShoulderVector = GOH_ShoulderLeft.pos - GOH_ShoulderRight.pos
+MMD_ShoulderVector = MMD_ShoulderLeft.pos - MMD_ShoulderRight.pos
+
+ShoulderWidthRatio = GetVectorLength(GOH_ShoulderVector) / GetVectorLength(MMD_ShoulderVector)
+
+### This scale should be opreated in WORLD
+coordsys = getattr(pymxs.runtime, '%coordsys_context')
+prev_coordsys = coordsys(pymxs.runtime.Name('world'), None)
+ShoulderEachBoneScale = (ShoulderWidthRatio ** ShoulderScaleBonesTotalAmount) ** (1 / len(ShoulderScaleBones))
+for BoneName in ShoulderScaleBones:
+    rt.scale(GOH_ShoulderLeft, rt.Point3(ShoulderEachBoneScale**0.5,ShoulderEachBoneScale,ShoulderEachBoneScale**0.5))
+    rt.scale(GOH_ShoulderRight, rt.Point3(ShoulderEachBoneScale**0.5,ShoulderEachBoneScale,ShoulderEachBoneScale**0.5))
+# Restore previous coord
+coordsys(prev_coordsys, None)
+
+## Move Bones To Fit
+MMD_ShoulderLeft.pos = GOH_ShoulderLeft.pos
+MMD_ShoulderRight.pos = GOH_ShoulderRight.pos
+
+### Scale LowerBody For Matching
+LowerBodyScaling = ShoulderWidthRatio ** ShoulderScaleBonesLowerBodyAmount
+rt.scale(GetNodeByNameRaiser(MMD_LowerBodyName), rt.Point3(LowerBodyScaling,ShoulderEachBoneScale,LowerBodyScaling))
+
+### Normalize Lower Body, BREAK LINK
+NormalizeScaleBreakLink(MMD_UpperLegLeft[0])
+NormalizeScaleBreakLink(MMD_UpperLegRight[0])
+NormalizeScaleBreakLink(MMD_UpperLegDLeft[0])
+NormalizeScaleBreakLink(MMD_UpperLegDRight[0])
+## UpperLeg: ReAlignment
+## UpperLeg Scaling
+AlignBoneLength(MMD_UpperLegLeft, GOH_UpperLegLeft, UpperLegScalingAxis)
+AlignBoneLength(MMD_UpperLegRight, GOH_UpperLegRight, UpperLegScalingAxis)
+AlignBoneLength(MMD_UpperLegDLeft, GOH_UpperLegLeft, UpperLegScalingAxis)
+AlignBoneLength(MMD_UpperLegDRight, GOH_UpperLegRight, UpperLegScalingAxis)
+
+## UpperLeg Rotation (YZ -> XZ)
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "XZ")
+
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "XZ")
+
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "XZ")
+
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "XZ")
+
+### LowerLeg: ReAlignment
+
+## LowerLeg: Scaling Y -> Rotation YZ -> Rotation XZ
+## LowerLeg Scaling
+AlignBoneLength(MMD_LowerLegLeft, GOH_LowerLegLeft, LowerLegScalingAxis)
+AlignBoneLength(MMD_LowerLegRight, GOH_LowerLegRight, LowerLegScalingAxis)
+AlignBoneLength(MMD_LowerLegDLeft, GOH_LowerLegLeft, LowerLegScalingAxis)
+AlignBoneLength(MMD_LowerLegDRight, GOH_LowerLegRight, LowerLegScalingAxis)
+
+## LowerLeg Rotation (YZ -> XZ)
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "XZ")
+
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "XZ")
+
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "XZ")
+
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
+
+## Normalize Foot Scale, BREAK LINK
+NormalizeScaleBreakLink(MMD_LowerLegLeft[1])
+NormalizeScaleBreakLink(MMD_LowerLegRight[1])
+NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
+NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
 
 
 
