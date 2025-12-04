@@ -2,6 +2,43 @@ import math
 import pymxs
 from pymxs import runtime as rt
 
+def SolveResizeChainRatio(WeightList, TargetResizeRatio, IterationTimes, low, high):
+    WS = sum(WeightList)
+    
+    cumulative_product = [WeightList[0]]
+    for i in range(1, len(WeightList)):
+        cumulative_product.append(cumulative_product[-1] * WeightList[i])
+    
+    def f(N):
+        result = 0.0
+        for i, (W, C) in enumerate(zip(WeightList, cumulative_product)):
+            result += (W * C) * (N ** (i + 1.0))
+        return result - (TargetResizeRatio * WS)
+    
+    f_low = f(low)
+    f_high = f(high)
+    
+    if f_low == 0:
+        return low
+    if f_high == 0:
+        return high
+    
+    for i in range(IterationTimes):
+        mid = (low + high) / 2.0
+        f_mid = f(mid)
+        
+        if f_mid == 0.0:
+            return mid
+        
+        if f_low * f_mid <= 0.0:
+            high = mid
+            f_high = f_mid
+        else:
+            low = mid
+            f_low = f_mid
+    
+    return (low + high) / 2.0
+
 def GetNodeByNameRaiser(InputNodeName):
     TargetNode = rt.getNodeByName(InputNodeName)
     if TargetNode == None:
@@ -357,20 +394,20 @@ MMD_UpperBodyTargetPos = GetMeanPoseFromNodeNameList(MMD_UpperBodyTargetList)
 LengthScaleNeeded = GetVectorLength(GOH_UpperBodyTargetPos - GOH_UpperBodySourcePos) / GetVectorLength(MMD_UpperBodyTargetPos - MMD_UpperBodySourcePos)
 
 CumulativeShoulderScale = 1.0 # We record this value for further hip scaling
-for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBodySteps[1:]: # MMD_UpperBodySourceList (Legs) DO NOT SCALE, so we used [1:]!
-    ScalingTotalWeight = TotalWeight - UpperBodySteps[0][2]
-    CurrentStepScaling = LengthScaleNeeded ** (CurrentStepWeightRaw / ScalingTotalWeight)
-    for CurrentBone in CurrentStepStartBones:
-        
-        ## Use local coords to scale
-        coordsys = getattr(pymxs.runtime, '%coordsys_context')
-        prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
-        
-        rt.scale(CurrentBone, rt.Point3((CurrentStepScaling ** 0.667), CurrentStepScaling, (CurrentStepScaling ** 0.667)))
-        CumulativeShoulderScale *= (CurrentStepScaling ** 0.667)
 
-        # Restore previous coord
-        coordsys(prev_coordsys, None)
+ScalingBones = list()
+ScalingWeights = list()
+for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBodySteps[1:]: # MMD_UpperBodySourceList (Legs) DO NOT SCALE, so we used [1:]!
+    ScalingBones.append(CurrentStepStartBones)
+    ScalingWeights.append(CurrentStepWeightRaw)
+ScalingFactor = SolveResizeChainRatio(ScalingWeights, LengthScaleNeeded, 32, 0.0, 10.0)
+print(ScalingFactor)
+
+for ScalingBone, ScalingWeight in zip(ScalingBones, ScalingWeights):
+    CurrentStepScaling = ScalingWeight * ScalingFactor
+    CumulativeShoulderScale *= (CurrentStepScaling ** 0.667)
+    for CurrentBone in CurrentStepStartBones:
+        rt.scale(CurrentBone, rt.Point3((CurrentStepScaling ** 0.667), CurrentStepScaling, (CurrentStepScaling ** 0.667)))
 
 #### Normalize shoulder scale
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
