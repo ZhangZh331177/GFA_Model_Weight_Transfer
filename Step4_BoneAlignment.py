@@ -1,4 +1,5 @@
 import math
+import pymxs
 from pymxs import runtime as rt
 
 def GetNodeByNameRaiser(InputNodeName):
@@ -45,7 +46,7 @@ def GetVectorLength(MaxVector):
 
 def ApplyRotationOnPlane(TargetBone, Angle, Plane):
     if Plane == "XY":
-        rt.rotate(TargetBone, rt.eulerangles(0, 0, -Angle))
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
     elif Plane == "YZ":
         rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
     elif Plane == "XZ":
@@ -71,64 +72,106 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     ApplyRotationOnPlane(RotatingBoneStart, RotationDiff, Plane)
 
 def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False):
-    # Make two bones's Length Identical by Scaling the bone.
-    OtherAxisScaleFactor = 0.5
+    try:
+        # Make two bones's Length Identical by Scaling the bone.
+        OtherAxisScaleFactor = 0.5
 
-    # Get Length Difference
-    ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
-    ScalingBoneEnd = GetNodeByNameRaiser(ScalingBone[1])
-    ScalingBoneVector = ScalingBoneEnd.pos - ScalingBoneStart.pos
+        # Get Length Difference
+        ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
+        ScalingBoneEnd = GetNodeByNameRaiser(ScalingBone[1])
+        ScalingBoneVector = ScalingBoneEnd.pos - ScalingBoneStart.pos
 
-    TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
-    TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
-    TargetBoneVector = TargetBoneEnd.pos - TargetBoneStart.pos
-    
-    if UseProjectionLength:
-        raise NotImplementedError("Scaling with projection length is not implemented!")
-    else:
-        LengthRatio = GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)
-    
-    # Apply Scaling
-    CurrentScale = ScalingBoneStart.scale
-    if MainLocalAxis == "X":
-        CurrentScale.x *= LengthRatio
-        CurrentScale.y *= (LengthRatio ** OtherAxisScaleFactor)
-        CurrentScale.z *= (LengthRatio ** OtherAxisScaleFactor)
-    elif MainLocalAxis == "Y":
-        CurrentScale.x *= (LengthRatio ** OtherAxisScaleFactor)
-        CurrentScale.y *= LengthRatio
-        CurrentScale.z *= (LengthRatio ** OtherAxisScaleFactor)
-    elif MainLocalAxis == "Z":
-        CurrentScale.x *= (LengthRatio ** OtherAxisScaleFactor)
-        CurrentScale.y *= (LengthRatio ** OtherAxisScaleFactor)
-        CurrentScale.z *= LengthRatio
-    else:
-        raise ValueError("MainLocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+MainLocalAxis+"'!")
-    ScalingBoneStart.scale = CurrentScale
+        TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
+        TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
+        TargetBoneVector = TargetBoneEnd.pos - TargetBoneStart.pos
+        
+        if UseProjectionLength:
+            raise NotImplementedError("Scaling with projection length is not implemented!")
+        else:
+            LengthRatio = GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)
+        
+        # Apply Scaling
+        ## Use local coords to scale
+        coordsys = getattr(pymxs.runtime, '%coordsys_context')
+        prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
+        MainScale = LengthRatio
+        OtherScale = LengthRatio ** OtherAxisScaleFactor
+        # CurrentScale = ScalingBoneStart.scale
+        if MainLocalAxis == "X":
+            rt.scale(ScalingBoneStart, rt.Point3(MainScale,OtherScale,OtherScale))
+        elif MainLocalAxis == "Y":
+            rt.scale(ScalingBoneStart, rt.Point3(OtherScale,MainScale,OtherScale))
+        elif MainLocalAxis == "Z":
+            rt.scale(ScalingBoneStart, rt.Point3(OtherScale,OtherScale,MainScale))
+        else:
+            raise ValueError("MainLocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+MainLocalAxis+"'!")
+        
+        # ScalingBoneStart.scale = CurrentScale
+
+        # Restore previous coord
+        coordsys(prev_coordsys, None)
+    except Exception as e:
+        Bone_A_Str = "'" + ScalingBone[0] + "','" + ScalingBone[1] + "'"
+        Bone_B_Str = "'" + TargetBone[0] + "','" + TargetBone[1] + "'"
+        raise RuntimeError("AlignBoneLength Raised Error: Failed to align Bone ["+Bone_A_Str+"] to Bone ["+Bone_B_Str+"] due to following exception:" + str(e))
+
 
 def NormalizeScale(InputBoneName):
     # Rescale the input bone to restore 1:1:1 scaling, use geometric mean
+    ## Break The relationship
     InputBone = GetNodeByNameRaiser(InputBoneName)
     InputBoneParent = InputBone.parent
     InputBone.parent = None
+
+    # Scale
     CurrentScale = InputBone.scale
     MeanScale = abs(CurrentScale.x * CurrentScale.y * CurrentScale.z) ** (1.0 / 3.0)
     if CurrentScale.x > 0:
-        CurrentScale.x = MeanScale
+        NewScaleX = MeanScale
     else:
-        CurrentScale.x = -MeanScale
+        NewScaleX = -MeanScale
 
     if CurrentScale.y > 0:
-        CurrentScale.y = MeanScale
+        NewScaleY = MeanScale
     else:
-        CurrentScale.y = -MeanScale
+        NewScaleY = -MeanScale
 
     if CurrentScale.z > 0:
-        CurrentScale.z = MeanScale
+        NewScaleZ = MeanScale
     else:
-        CurrentScale.z = -MeanScale
-    InputBone.scale = CurrentScale
+        NewScaleZ = -MeanScale
+    InputBone.scale = rt.Point3(NewScaleX, NewScaleY, NewScaleZ)
+    
+    # Restore relationship
     InputBone.parent = InputBoneParent
+
+def NormalizeScaleBreakLink(InputBoneName):
+    # Rescale the input bone to restore 1:1:1 scaling, use geometric mean
+    ## Break The relationship
+    InputBone = GetNodeByNameRaiser(InputBoneName)
+    InputBoneParent = InputBone.parent
+    InputBone.parent = None
+
+    # Scale
+    CurrentScale = InputBone.scale
+    MeanScale = abs(CurrentScale.x * CurrentScale.y * CurrentScale.z) ** (1.0 / 3.0)
+    if CurrentScale.x > 0:
+        NewScaleX = MeanScale
+    else:
+        NewScaleX = -MeanScale
+
+    if CurrentScale.y > 0:
+        NewScaleY = MeanScale
+    else:
+        NewScaleY = -MeanScale
+
+    if CurrentScale.z > 0:
+        NewScaleZ = MeanScale
+    else:
+        NewScaleZ = -MeanScale
+    InputBone.scale = rt.Point3(NewScaleX, NewScaleY, NewScaleZ)
+
 
 def GetProjectionLength(Pos1, Pos2):
     DotProduct = (Pos1.x * Pos2.x) + (Pos1.y * Pos2.y) + (Pos1.z * Pos2.z)
@@ -144,7 +187,7 @@ def GetProjectionLength(Pos1, Pos2):
 
 
 # Parameter
-MMD_RootName = "Mixueer"
+MMD_RootName = "GirlsFrontline AlvaDefault"
 MMD_Root = GetNodeByNameRaiser(MMD_RootName)
 
 # These Names SHOULD be fixed in different run
@@ -172,13 +215,21 @@ AlignBoneLength(MMD_UpperLegDRight, GOH_UpperLegRight, UpperLegScalingAxis)
 ## UpperLeg Rotation (YZ -> XZ)
 AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "YZ")
 AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegLeft, GOH_UpperLegLeft, "XZ")
 
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "XZ")
 AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "YZ")
 AlignBoneRotationOnPlane(MMD_UpperLegRight, GOH_UpperLegRight, "XZ")
 
 AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "YZ")
 AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDLeft, GOH_UpperLegLeft, "XZ")
 
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "XZ")
 AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "YZ")
 AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "XZ")
 
@@ -203,13 +254,21 @@ AlignBoneLength(MMD_LowerLegDRight, GOH_LowerLegRight, LowerLegScalingAxis)
 ## LowerLeg Rotation (YZ -> XZ)
 AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "XZ")
 
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "XZ")
 AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerLegRight, GOH_LowerLegRight, "XZ")
 
 AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDLeft, GOH_LowerLegLeft, "XZ")
 
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
 AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
 
@@ -332,3 +391,61 @@ for CurrentBoneName in MMD_UpperBodyTargetList:
     CurrentBone.pos = CurrentBone.pos + UpperBodyOffsetCollected
 #### Also Apply to neck
 GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(GOH_NeckBoneName).pos
+
+#### Align shoulder here
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Align UpperArm
+### UpperArm
+GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
+GOH_UpperArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
+
+MMD_UpperArmLeft = ("Arm_L", "Elbow_L")
+MMD_UpperArmRight = ("Arm_R", "Elbow_R")
+
+UpperArmScalingAxis = "Y"
+
+## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
+### UpperArm Scaling
+AlignBoneLength(MMD_UpperArmLeft, GOH_UpperArmLeft, UpperArmScalingAxis)
+AlignBoneLength(MMD_UpperArmRight, GOH_UpperArmRight, UpperArmScalingAxis)
+
+### UpperArm Rotation (YZ -> XZ)
+AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "XY")
+AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "XY")
+AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "YZ")
+
+AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
+
+
+
+
+
+# ### Now Main Body is already aligned up, break all links for better Scale normalization
+# #### Foot
+# NormalizeScaleBreakLink(MMD_LowerLegLeft[1])
+# NormalizeScaleBreakLink(MMD_LowerLegRight[1])
+# NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
+# NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
+# #### Shoulder
+# for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
+#     NormalizeScaleBreakLink(CurrentBone.name)
+# #### Neck 
+# NormalizeScaleBreakLink(MMD_NeckBoneName)
