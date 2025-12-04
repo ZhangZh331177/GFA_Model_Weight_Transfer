@@ -501,28 +501,20 @@ NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
 NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 #### Align UpperArm
 ### UpperArm
-GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
-GOH_UpperArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
+GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm2L")
+GOH_UpperArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm2R")
 
 MMD_UpperArmLeft = ("Arm_L", "Elbow_L")
 MMD_UpperArmRight = ("Arm_R", "Elbow_R")
 
 UpperArmScalingAxis = "Y"
+
+## Normalize Scle, Break link For Shoulders and Neck
+for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
+    NormalizeScaleBreakLink(CurrentBone.name)
+NormalizeScaleBreakLink(MMD_NeckBoneName)
 
 ## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
 ### UpperArm Scaling
@@ -540,18 +532,30 @@ AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
 AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "XY")
 AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
 
+### LowerArm
+GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
+GOH_LowerArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
 
 
+MMD_LowerArmLeft = ("Elbow_L", "MiddleFinger1_L")
+MMD_LowerArmRight = ("Elbow_R", "MiddleFinger1_R")
 
+LowerArmScalingAxis = "Y"
 
-# ### Now Main Body is already aligned up, break all links for better Scale normalization
-# #### Foot
-# NormalizeScaleBreakLink(MMD_LowerLegLeft[1])
-# NormalizeScaleBreakLink(MMD_LowerLegRight[1])
-# NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
-# NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
-# #### Shoulder
-# for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
-#     NormalizeScaleBreakLink(CurrentBone.name)
-# #### Neck 
-# NormalizeScaleBreakLink(MMD_NeckBoneName)
+## LowerArm: Scaling Y -> Rotation YZ -> Rotation XZ
+### LowerArm Scaling
+AlignBoneLength(MMD_LowerArmLeft, GOH_LowerArmLeft, LowerArmScalingAxis)
+AlignBoneLength(MMD_LowerArmRight, GOH_LowerArmRight, LowerArmScalingAxis)
+
+### LowerArm Rotation (YZ -> XZ)
+AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "XY")
+
+AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "XY")
+
+AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
+
+AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
