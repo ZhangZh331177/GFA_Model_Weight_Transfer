@@ -2,19 +2,26 @@ from pymxs import runtime as rt
 
 # Merge bone array
 bone_merging_list = [
+    [["ControlNode"], [("GFA_MWT_SKE_Body", 1.0)]],
+    [["ParentNode"], [("GFA_MWT_SKE_Body", 1.0)]],
+    [["Center"], [("GFA_MWT_SKE_Body", 1.0)]],
+    [["Groove"], [("GFA_MWT_SKE_Body", 1.0)]],
+    [["_shadow_WaistCancel_L"], [("GFA_MWT_SKE_Body", 1.0)]],
+    [["_shadow_WaistCancel_R"], [("GFA_MWT_SKE_Body", 1.0)]],
+
     [["Waist"], [("GFA_MWT_SKE_Body", 1.0)]],
 
     [["LowerBody"], [("GFA_MWT_SKE_Body", 1.0)]],
 
-    [["WaistCancel_R"], [("GFA_MWT_SKE_foot1R", 1.0)]],
+    [["WaistCancel_R"], [("GFA_MWT_SKE_foot1R", 1.0)]], # ??????
     [["Leg_R"], [("GFA_MWT_SKE_foot1R", 1.0)]],
     [["LegD_R"], [("GFA_MWT_SKE_foot1R", 1.0)]],
     [["Knee_R"], [("GFA_MWT_SKE_foot2R", 1.0)]],
     [["KneeD_R"], [("GFA_MWT_SKE_foot2R", 1.0)]],
     [["Ankle_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
     [["AnkleD_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
-    [["AnkleTip_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
-    [["LegTipEX_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
+    # [["AnkleTip_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
+    # [["LegTipEX_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
 
     [["WaistCancel_L"], [("GFA_MWT_SKE_foot1L", 1.0)]], # ??????
     [["Leg_L"], [("GFA_MWT_SKE_foot1L", 1.0)]],
@@ -23,8 +30,8 @@ bone_merging_list = [
     [["KneeD_L"], [("GFA_MWT_SKE_foot2L", 1.0)]],
     [["Ankle_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
     [["AnkleD_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
-    [["AnkleTip_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
-    [["LegTipEX_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
+    # [["AnkleTip_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
+    # [["LegTipEX_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
 
 
     [["UpperBody"], [("GFA_MWT_SKE_IK_LeftRight", 1.0)]],

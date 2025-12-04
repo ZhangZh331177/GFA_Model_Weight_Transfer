@@ -469,14 +469,23 @@ MMD_ShoulderLeft.pos = GOH_ShoulderLeft.pos
 MMD_ShoulderRight.pos = GOH_ShoulderRight.pos
 
 ### Scale LowerBody For Matching
+UpperLegOrigCenter = (GetNodeByNameRaiser(MMD_UpperLegLeft[0]).pos + GetNodeByNameRaiser(MMD_UpperLegRight[0]).pos) / 2.0
 LowerBodyScaling = (ShoulderWidthRatio * CumulativeShoulderScale) ** ShoulderScaleBonesLowerBodyAmount
 rt.scale(GetNodeByNameRaiser(MMD_LowerBodyName), rt.Point3(LowerBodyScaling,ShoulderEachBoneScale,LowerBodyScaling))
-
+UpperLegCurrCenter = (GetNodeByNameRaiser(MMD_UpperLegLeft[0]).pos + GetNodeByNameRaiser(MMD_UpperLegRight[0]).pos) / 2.0
 ### Normalize Lower Body, BREAK LINK
 NormalizeScaleBreakLink(MMD_UpperLegLeft[0])
 NormalizeScaleBreakLink(MMD_UpperLegRight[0])
 NormalizeScaleBreakLink(MMD_UpperLegDLeft[0])
 NormalizeScaleBreakLink(MMD_UpperLegDRight[0])
+GetNodeByNameRaiser(MMD_UpperLegLeft[0]).pos = GetNodeByNameRaiser(MMD_UpperLegLeft[0]).pos + (UpperLegOrigCenter - UpperLegCurrCenter)
+GetNodeByNameRaiser(MMD_UpperLegRight[0]).pos = GetNodeByNameRaiser(MMD_UpperLegRight[0]).pos + (UpperLegOrigCenter - UpperLegCurrCenter)
+GetNodeByNameRaiser(MMD_UpperLegDLeft[0]).pos = GetNodeByNameRaiser(MMD_UpperLegDLeft[0]).pos + (UpperLegOrigCenter - UpperLegCurrCenter)
+GetNodeByNameRaiser(MMD_UpperLegDRight[0]).pos = GetNodeByNameRaiser(MMD_UpperLegDRight[0]).pos + (UpperLegOrigCenter - UpperLegCurrCenter)
+
+
+
+
 ## UpperLeg: ReAlignment
 ## UpperLeg Scaling
 AlignBoneLength(MMD_UpperLegLeft, GOH_UpperLegLeft, UpperLegScalingAxis)
