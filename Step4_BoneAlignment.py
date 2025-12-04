@@ -74,7 +74,7 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
 def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False):
     try:
         # Make two bones's Length Identical by Scaling the bone.
-        OtherAxisScaleFactor = 0.5
+        OtherAxisScaleFactor = 0.667
 
         # Get Length Difference
         ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
@@ -359,14 +359,23 @@ LengthScaleNeeded = GetVectorLength(GOH_UpperBodyTargetPos - GOH_UpperBodySource
 
 CumulativeShoulderScale = 1.0 # We record this value for further hip scaling
 for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBodySteps[1:]: # MMD_UpperBodySourceList (Legs) DO NOT SCALE, so we used [1:]!
-    CurrentStepScaling = LengthScaleNeeded ** (CurrentStepWeightRaw / TotalWeight)
+    ScalingTotalWeight = TotalWeight - UpperBodySteps[0][2]
+    CurrentStepScaling = LengthScaleNeeded ** (CurrentStepWeightRaw / ScalingTotalWeight)
     for CurrentBone in CurrentStepStartBones:
+        
+        ## Use local coords to scale
+        coordsys = getattr(pymxs.runtime, '%coordsys_context')
+        prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
         CurrentScale = CurrentBone.scale
-        CurrentScale.x = CurrentScale.x * (CurrentStepScaling ** 0.5)
+        CurrentScale.x = CurrentScale.x * (CurrentStepScaling ** 0.667)
         CurrentScale.y = CurrentScale.y * CurrentStepScaling
-        CurrentScale.z = CurrentScale.z * (CurrentStepScaling ** 0.5)
-        CumulativeShoulderScale *= (CurrentStepScaling ** 0.5)
+        CurrentScale.z = CurrentScale.z * (CurrentStepScaling ** 0.667)
+        CumulativeShoulderScale *= (CurrentStepScaling ** 0.667)
         CurrentBone.scale = CurrentScale
+
+        # Restore previous coord
+        coordsys(prev_coordsys, None)
 
 #### Normalize shoulder scale
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
@@ -401,7 +410,7 @@ MMD_LowerBodyName = "LowerBody"
 
 ShoulderScaleBones = ["UpperBody", "UpperBody2"]
 ShoulderScaleBonesTotalAmount = 0.667 # Ratio ** This amount
-ShoulderScaleBonesLowerBodyAmount = 0.333 # Ratio ** This amount
+ShoulderScaleBonesLowerBodyAmount = 0.667 # Ratio ** This amount
 
 GOH_ShoulderLeft = GetNodeByNameRaiser(GOH_ShoulderLeftName)
 GOH_ShoulderRight = GetNodeByNameRaiser(GOH_ShoulderRightName)
@@ -418,8 +427,8 @@ coordsys = getattr(pymxs.runtime, '%coordsys_context')
 prev_coordsys = coordsys(pymxs.runtime.Name('world'), None)
 ShoulderEachBoneScale = (ShoulderWidthRatio ** ShoulderScaleBonesTotalAmount) ** (1 / len(ShoulderScaleBones))
 for BoneName in ShoulderScaleBones:
-    rt.scale(GOH_ShoulderLeft, rt.Point3(ShoulderEachBoneScale**0.5,ShoulderEachBoneScale,ShoulderEachBoneScale**0.5))
-    rt.scale(GOH_ShoulderRight, rt.Point3(ShoulderEachBoneScale**0.5,ShoulderEachBoneScale,ShoulderEachBoneScale**0.5))
+    rt.scale(GOH_ShoulderLeft, rt.Point3(ShoulderEachBoneScale**0.667,ShoulderEachBoneScale,ShoulderEachBoneScale**0.667))
+    rt.scale(GOH_ShoulderRight, rt.Point3(ShoulderEachBoneScale**0.667,ShoulderEachBoneScale,ShoulderEachBoneScale**0.667))
 # Restore previous coord
 coordsys(prev_coordsys, None)
 
@@ -428,7 +437,7 @@ MMD_ShoulderLeft.pos = GOH_ShoulderLeft.pos
 MMD_ShoulderRight.pos = GOH_ShoulderRight.pos
 
 ### Scale LowerBody For Matching
-LowerBodyScaling = ShoulderWidthRatio ** ShoulderScaleBonesLowerBodyAmount
+LowerBodyScaling = (ShoulderWidthRatio * CumulativeShoulderScale) ** ShoulderScaleBonesLowerBodyAmount
 rt.scale(GetNodeByNameRaiser(MMD_LowerBodyName), rt.Point3(LowerBodyScaling,ShoulderEachBoneScale,LowerBodyScaling))
 
 ### Normalize Lower Body, BREAK LINK
