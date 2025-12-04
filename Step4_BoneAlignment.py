@@ -107,7 +107,6 @@ def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength 
         else:
             raise ValueError("MainLocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+MainLocalAxis+"'!")
         
-        # ScalingBoneStart.scale = CurrentScale
 
         # Restore previous coord
         coordsys(prev_coordsys, None)
@@ -366,13 +365,9 @@ for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBod
         ## Use local coords to scale
         coordsys = getattr(pymxs.runtime, '%coordsys_context')
         prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
-
-        CurrentScale = CurrentBone.scale
-        CurrentScale.x = CurrentScale.x * (CurrentStepScaling ** 0.667)
-        CurrentScale.y = CurrentScale.y * CurrentStepScaling
-        CurrentScale.z = CurrentScale.z * (CurrentStepScaling ** 0.667)
+        
+        rt.scale(CurrentBone, rt.Point3((CurrentStepScaling ** 0.667), CurrentStepScaling, (CurrentStepScaling ** 0.667)))
         CumulativeShoulderScale *= (CurrentStepScaling ** 0.667)
-        CurrentBone.scale = CurrentScale
 
         # Restore previous coord
         coordsys(prev_coordsys, None)
