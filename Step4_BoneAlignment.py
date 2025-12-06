@@ -689,13 +689,14 @@ MMD_Thumb_R2 = ("Thumb1_R", "Thumb2_R")
 GOH_ThumbRotation = -20
 GOH_FingerRotation = -45 # ?
 
-ApplyRotationOnLocalAxisByName(MMD_Thumb_L1[0], GOH_ThumbRotation, "X")
-ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[0], GOH_ThumbRotation, "X")
-ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[1], GOH_ThumbRotation, "X")
+## Solve Later
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_L1[0], GOH_ThumbRotation, "X")
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[0], GOH_ThumbRotation, "X")
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[1], GOH_ThumbRotation, "X")
 
-ApplyRotationOnLocalAxisByName(MMD_Thumb_R1[0], -GOH_ThumbRotation, "X")
-ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[0], -GOH_ThumbRotation, "X")
-ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[1], -GOH_ThumbRotation, "X")
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_R1[0], -GOH_ThumbRotation, "X")
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[0], -GOH_ThumbRotation, "X")
+# ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[1], -GOH_ThumbRotation, "X")
 
 AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "XY")
 AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "YZ")
