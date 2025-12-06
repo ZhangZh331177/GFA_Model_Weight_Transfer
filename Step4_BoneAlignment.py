@@ -372,6 +372,7 @@ MMD_UpperBodyChain = [
 ]
 MMD_NeckBoneName = "Neck"
 GOH_NeckBoneName = "GFA_MWT_SKE_Head"
+MMD_NeckSourceBone = GetNodeByNameRaiser(MMD_NeckBoneName)
 UpperBodyOverAllVector = GetMeanPoseFromNodeNameList(MMD_UpperBodyChain[-1]) - GetMeanPoseFromNodeNameList(MMD_UpperBodyChain[0])
 UpperBodySteps = list()
 TotalWeight = 0
@@ -398,7 +399,7 @@ for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBod
 
 #### Also BackRotate the neck with the shoulder
 ShoulderWeight = UpperBodySteps[-1][-1] / TotalWeight
-ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_NeckBoneName), -(UpperBodyDirectionDiff * ShoulderWeight), UpperBodyAlignmentPlane)
+ApplyRotationOnPlane(MMD_NeckSourceBone, -(UpperBodyDirectionDiff * ShoulderWeight), UpperBodyAlignmentPlane)
 
 ### Distribute scaling
 #### Recacluate the Scale needed
@@ -447,7 +448,7 @@ for CurrentBoneName in MMD_UpperBodyTargetList:
     CurrentBone = GetNodeByNameRaiser(CurrentBoneName)
     CurrentBone.pos = CurrentBone.pos + UpperBodyOffsetCollected
 #### Also Apply to neck
-GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(GOH_NeckBoneName).pos
+MMD_NeckSourceBone.pos = GetNodeByNameRaiser(GOH_NeckBoneName).pos
 
 #### Align shoulder here
 GOH_ShoulderLeftName = "GFA_MWT_SKE_Hand1L"
@@ -601,15 +602,15 @@ for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
 NormalizeScaleBreakLink(MMD_NeckBoneName)
 
 ## UpperBody Extra Scaling
-UpperBodyExtraScale = max(GetNodeByNameRaiser(MMD_NeckBoneName).scale) / max(GetNodeByNameRaiser(MMD_UpperLegLeft[0]).scale)
+UpperBodyExtraScale = max(MMD_NeckSourceBone.scale) / max(GetNodeByNameRaiser(MMD_UpperLegLeft[0]).scale)
 UpperBodyExtraScaleFitting = (1 / UpperBodyExtraScale) ** 0.5
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
     rt.scale(CurrentBone, rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
-rt.scale(GetNodeByNameRaiser(MMD_NeckBoneName), rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
+rt.scale(MMD_NeckSourceBone, rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
 ## Neck Offset
 MMD_NeckSourceBoneName = "UpperBody"
-NeckBoneVector = GetNodeByNameRaiser(MMD_NeckBoneName).pos - GetNodeByNameRaiser(MMD_NeckSourceBoneName)
-GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(MMD_NeckSourceBoneName) + (NeckBoneVector * 0.975)
+NeckBoneVector = MMD_NeckSourceBone.pos - GetNodeByNameRaiser(MMD_NeckSourceBoneName).pos
+MMD_NeckSourceBone.pos = GetNodeByNameRaiser(MMD_NeckSourceBoneName).pos + (NeckBoneVector * 0.975)
 
 ## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
 ### UpperArm Scaling
