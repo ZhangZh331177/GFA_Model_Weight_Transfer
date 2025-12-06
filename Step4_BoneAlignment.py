@@ -91,6 +91,23 @@ def ApplyRotationOnPlane(TargetBone, Angle, Plane):
     else:
         raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is '"+Plane+"'!")
 
+def ApplyRotationOnLocalAxis(TargetBone, Angle, Axis):
+    coordsys = getattr(pymxs.runtime, '%coordsys_context')
+    prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
+    if Axis == "X":
+        rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
+    elif Axis == "Y":
+        rt.rotate(TargetBone, rt.eulerangles(0, Angle, 0))
+    elif Axis == "Z":
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
+    else:
+        coordsys(prev_coordsys, None)
+        raise ValueError("Axis should be one of 'X', 'Y' or 'Z', Input value is '"+Axis+"'!")
+    coordsys(prev_coordsys, None)
+
+def ApplyRotationOnLocalAxisByName(TargetBoneName, Angle, Axis):
+    ApplyRotationOnLocalAxis(GetNodeByNameRaiser(TargetBoneName), Angle, Axis)
 
 def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     # Make two bones's projection on target plane parallel.
@@ -629,3 +646,77 @@ AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
 
 ### FingerAlignment
+MMD_IndexFinger_L1 = ("IndexFinger1_L", "IndexFinger2_L")
+MMD_IndexFinger_L2 = ("IndexFinger2_L", "IndexFinger3_L")
+MMD_MiddleFinger_L1 = ("MiddleFinger1_L", "MiddleFinger2_L")
+MMD_MiddleFinger_L2 = ("MiddleFinger2_L", "MiddleFinger3_L")
+MMD_LittleFinger_L1 = ("LittleFinger1_L", "LittleFinger2_L")
+MMD_LittleFinger_L2 = ("LittleFinger2_L", "LittleFinger3_L")
+MMD_RingFinger_L1 = ("RingFinger1_L", "RingFinger2_L")
+MMD_RingFinger_L2 = ("RingFinger2_L", "RingFinger3_L")
+MMD_Thumb_L1 = ("Thumb0_L", "Thumb1_L")
+MMD_Thumb_L2 = ("Thumb1_L", "Thumb2_L")
+
+MMD_IndexFinger_R1 = ("IndexFinger1_R", "IndexFinger2_R")
+MMD_IndexFinger_R2 = ("IndexFinger2_R", "IndexFinger3_R")
+MMD_MiddleFinger_R1 = ("MiddleFinger1_R", "MiddleFinger2_R")
+MMD_MiddleFinger_R2 = ("MiddleFinger2_R", "MiddleFinger3_R")
+MMD_LittleFinger_R1 = ("LittleFinger1_R", "LittleFinger2_R")
+MMD_LittleFinger_R2 = ("LittleFinger2_R", "LittleFinger3_R")
+MMD_RingFinger_R1 = ("RingFinger1_R", "RingFinger2_R")
+MMD_RingFinger_R2 = ("RingFinger2_R", "RingFinger3_R")
+MMD_Thumb_R1 = ("Thumb0_R", "Thumb1_R")
+MMD_Thumb_R2 = ("Thumb1_R", "Thumb2_R")
+
+GOH_FingerRotation = -45 # ?
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_MiddleFinger_R1, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_MiddleFinger_R1, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_MiddleFinger_R2, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_MiddleFinger_R2, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_LowerArmRight, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "YZ")
+
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L1[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L2[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L2[1], GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L1[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L2[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L2[1], GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L1[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L2[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L2[1], GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_L1[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_L2[0], GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_L2[1], GOH_FingerRotation, "X")
+
+
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R1[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R2[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R2[1], -GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R1[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R2[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R2[1], -GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R1[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R2[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R2[1], -GOH_FingerRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_R1[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_R2[0], -GOH_FingerRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_RingFinger_R2[1], -GOH_FingerRotation, "X")
+# LegTipEX_L, Heel Adjustment
