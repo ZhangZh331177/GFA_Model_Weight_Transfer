@@ -81,6 +81,12 @@ def GetProjectedRotation(Object1, Object2, Plane):
 def GetVectorLength(MaxVector):
     return ((MaxVector.x **2) + (MaxVector.y **2) + (MaxVector.z **2)) ** 0.5
 
+def GetBoneLength(TargetBoneNames):
+    BoneStart = GetNodeByNameRaiser(TargetBoneNames[0])
+    BoneEnd = GetNodeByNameRaiser(TargetBoneNames[1])
+    return(GetVectorLength(BoneEnd.pos - BoneStart.pos))
+    
+
 def ApplyRotationOnPlane(TargetBone, Angle, Plane):
     if Plane == "XY":
         rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
@@ -125,6 +131,27 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     # Apply Rotation
     ApplyRotationOnPlane(RotatingBoneStart, RotationDiff, Plane)
 
+def ApplyScaleOnLocalAxis(ScalingBone, LengthRatio, LocalAxis, OtherAxisScaleFactor = 0.5):
+    # Apply Scaling
+    ## Use local coords to scale
+    coordsys = getattr(pymxs.runtime, '%coordsys_context')
+    prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
+    MainScale = LengthRatio
+    OtherScale = LengthRatio ** OtherAxisScaleFactor
+    # CurrentScale = ScalingBoneStart.scale
+    if LocalAxis == "X":
+        rt.scale(ScalingBone, rt.Point3(MainScale,OtherScale,OtherScale))
+    elif LocalAxis == "Y":
+        rt.scale(ScalingBone, rt.Point3(OtherScale,MainScale,OtherScale))
+    elif LocalAxis == "Z":
+        rt.scale(ScalingBone, rt.Point3(OtherScale,OtherScale,MainScale))
+    else:
+        raise ValueError("LocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+LocalAxis+"'!")
+    
+    # Restore previous coord
+    coordsys(prev_coordsys, None)
+
 def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False, LengthRatioToTarget = 1.0, OtherAxisScaleFactor = 0.5):
     # Make two bones's Length Identical by Scaling the bone.
     try:
@@ -143,25 +170,7 @@ def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength 
             LengthRatio = (GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)) * LengthRatioToTarget
         
         # Apply Scaling
-        ## Use local coords to scale
-        coordsys = getattr(pymxs.runtime, '%coordsys_context')
-        prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
-
-        MainScale = LengthRatio
-        OtherScale = LengthRatio ** OtherAxisScaleFactor
-        # CurrentScale = ScalingBoneStart.scale
-        if MainLocalAxis == "X":
-            rt.scale(ScalingBoneStart, rt.Point3(MainScale,OtherScale,OtherScale))
-        elif MainLocalAxis == "Y":
-            rt.scale(ScalingBoneStart, rt.Point3(OtherScale,MainScale,OtherScale))
-        elif MainLocalAxis == "Z":
-            rt.scale(ScalingBoneStart, rt.Point3(OtherScale,OtherScale,MainScale))
-        else:
-            raise ValueError("MainLocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+MainLocalAxis+"'!")
-        
-
-        # Restore previous coord
-        coordsys(prev_coordsys, None)
+        ApplyScaleOnLocalAxis(ScalingBoneStart, LengthRatio, MainLocalAxis, OtherAxisScaleFactor = OtherAxisScaleFactor)
     except Exception as e:
         Bone_A_Str = "'" + ScalingBone[0] + "','" + ScalingBone[1] + "'"
         Bone_B_Str = "'" + TargetBone[0] + "','" + TargetBone[1] + "'"
@@ -677,7 +686,16 @@ MMD_RingFinger_R2 = ("RingFinger2_R", "RingFinger3_R")
 MMD_Thumb_R1 = ("Thumb0_R", "Thumb1_R")
 MMD_Thumb_R2 = ("Thumb1_R", "Thumb2_R")
 
+GOH_ThumbRotation = -20
 GOH_FingerRotation = -45 # ?
+
+ApplyRotationOnLocalAxisByName(MMD_Thumb_L1[0], GOH_ThumbRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[0], GOH_ThumbRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[1], GOH_ThumbRotation, "X")
+
+ApplyRotationOnLocalAxisByName(MMD_Thumb_R1[0], -GOH_ThumbRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[0], -GOH_ThumbRotation, "X")
+ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[1], -GOH_ThumbRotation, "X")
 
 AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "XY")
 AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "YZ")
@@ -814,21 +832,19 @@ GOH_LowerArmWithHand_L = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
 MMD_LowerArmWithHand_R = ("Elbow_R", "MiddleFinger2_R")
 GOH_LowerArmWithHand_R = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm4R_hide")
 
-AlignBoneLength(MMD_LowerArmWithHand_L, GOH_LowerArmWithHand_L, LowerArmScalingAxis)
-AlignBoneLength(MMD_LowerArmWithHand_R, GOH_LowerArmWithHand_R, LowerArmScalingAxis)
-
+# GOH Skeleton Is ***King not symmetrical!!!!!!
+MeanScale_LowerArmWithHand = (GetBoneLength(GOH_LowerArmWithHand_R) + GetBoneLength(GOH_LowerArmWithHand_L)) / (GetBoneLength(MMD_LowerArmWithHand_R) + GetBoneLength(MMD_LowerArmWithHand_L))
+ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_LowerArmWithHand_L[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 0.5)
+ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_LowerArmWithHand_R[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 0.5)
 
 NormalizeScaleBreakLink("Wrist_L")
 NormalizeScaleBreakLink("Wrist_R")
 
-MMD_LowerWristToHand_L = ("Wrist_L", "MiddleFinger2_L")
-GOH_LowerWristToHand_L = ("Wrist_L", "GFA_MWT_SKE_Palm4L_hide")
-MMD_LowerWristToHand_R = ("Wrist_R", "MiddleFinger2_R")
-GOH_LowerWristToHand_R = ("Wrist_R", "GFA_MWT_SKE_Palm4R_hide")
+MMD_WristToHand_L = ("Wrist_L", "MiddleFinger2_L")
+GOH_WristToHand_L = ("Wrist_L", "GFA_MWT_SKE_Palm4L_hide")
+MMD_WristToHand_R = ("Wrist_R", "MiddleFinger2_R")
+GOH_WristToHand_R = ("Wrist_R", "GFA_MWT_SKE_Palm4R_hide")
 
-AlignBoneLength(MMD_LowerWristToHand_L, GOH_LowerWristToHand_L, "Y", OtherAxisScaleFactor=1.0)
-AlignBoneLength(MMD_LowerWristToHand_R, GOH_LowerWristToHand_R, "Y", OtherAxisScaleFactor=1.0)
-
-
-
-# LegTipEX_L, Heel Adjustment
+MeanScale_LowerArmWithHand = (GetBoneLength(GOH_WristToHand_R) + GetBoneLength(GOH_WristToHand_L)) / (GetBoneLength(MMD_WristToHand_R) + GetBoneLength(MMD_WristToHand_L))
+ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_WristToHand_L[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 1.0)
+ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_WristToHand_R[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 1.0)
