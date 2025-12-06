@@ -599,14 +599,17 @@ UpperArmScalingAxis = "Y"
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
     NormalizeScaleBreakLink(CurrentBone.name)
 NormalizeScaleBreakLink(MMD_NeckBoneName)
-# LowerBody Scaling
+
+## UpperBody Extra Scaling
 UpperBodyExtraScale = max(GetNodeByNameRaiser(MMD_NeckBoneName).scale) / max(GetNodeByNameRaiser(MMD_UpperLegLeft[0]).scale)
 UpperBodyExtraScaleFitting = (1 / UpperBodyExtraScale) ** 0.5
-
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
     rt.scale(CurrentBone, rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
 rt.scale(GetNodeByNameRaiser(MMD_NeckBoneName), rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
-
+## Neck Offset
+MMD_NeckSourceBoneName = "UpperBody"
+NeckBoneVector = GetNodeByNameRaiser(MMD_NeckBoneName).pos - GetNodeByNameRaiser(MMD_NeckSourceBoneName)
+GetNodeByNameRaiser(MMD_NeckBoneName).pos = GetNodeByNameRaiser(MMD_NeckSourceBoneName) + (NeckBoneVector * 0.975)
 
 ## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
 ### UpperArm Scaling
