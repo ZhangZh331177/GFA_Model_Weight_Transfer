@@ -418,7 +418,6 @@ for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBod
     ScalingBones.append(CurrentStepStartBones)
     ScalingWeights.append(CurrentStepWeightRaw)
 ScalingFactor = SolveResizeChainRatio(ScalingWeights, LengthScaleNeeded, 32, 0.0, 10.0)
-print(ScalingFactor)
 
 for ScalingBone, ScalingWeight in zip(ScalingBones, ScalingWeights):
     CurrentStepScaling = ScalingWeight * ScalingFactor
@@ -586,7 +585,6 @@ NormalizeScaleBreakLink(MMD_LowerLegRight[1])
 NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
 NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
 
-
 #### Align UpperArm
 ### UpperArm
 GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
@@ -601,6 +599,14 @@ UpperArmScalingAxis = "Y"
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
     NormalizeScaleBreakLink(CurrentBone.name)
 NormalizeScaleBreakLink(MMD_NeckBoneName)
+# LowerBody Scaling
+UpperBodyExtraScale = max(GetNodeByNameRaiser(MMD_NeckBoneName).scale) / max(GetNodeByNameRaiser(MMD_UpperLegLeft[0]).scale)
+UpperBodyExtraScaleFitting = (1 / UpperBodyExtraScale) ** 0.5
+
+for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
+    rt.scale(CurrentBone, rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
+rt.scale(GetNodeByNameRaiser(MMD_NeckBoneName), rt.Point3(UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting, UpperBodyExtraScaleFitting))
+
 
 ## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
 ### UpperArm Scaling
@@ -747,16 +753,46 @@ MMD_MiddleFinger_RA = ("MiddleFinger1_R", "MiddleFinger3_R")
 MMD_LittleFinger_RA = ("LittleFinger1_R", "LittleFinger3_R")
 MMD_RingFinger_RA = ("RingFinger1_R", "RingFinger3_R")
 
-AlignBoneRotationOnPlane(MMD_IndexFinger_LA, MMD_MiddleFinger_LA, "XZ")
-AlignBoneRotationOnPlane(MMD_IndexFinger_LA, MMD_MiddleFinger_LA, "YZ")
-AlignBoneRotationOnPlane(MMD_LittleFinger_LA, MMD_MiddleFinger_LA, "XZ")
-AlignBoneRotationOnPlane(MMD_LittleFinger_LA, MMD_MiddleFinger_LA, "YZ")
-AlignBoneRotationOnPlane(MMD_RingFinger_LA, MMD_MiddleFinger_LA, "XZ")
-AlignBoneRotationOnPlane(MMD_RingFinger_LA, MMD_MiddleFinger_LA, "YZ")
-AlignBoneRotationOnPlane(MMD_IndexFinger_RA, MMD_MiddleFinger_RA, "XZ")
-AlignBoneRotationOnPlane(MMD_IndexFinger_RA, MMD_MiddleFinger_RA, "YZ")
-AlignBoneRotationOnPlane(MMD_LittleFinger_RA, MMD_MiddleFinger_RA, "XZ")
-AlignBoneRotationOnPlane(MMD_LittleFinger_RA, MMD_MiddleFinger_RA, "YZ")
-AlignBoneRotationOnPlane(MMD_RingFinger_RA, MMD_MiddleFinger_RA, "XZ")
-AlignBoneRotationOnPlane(MMD_RingFinger_RA, MMD_MiddleFinger_RA, "YZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_LA, MMD_MiddleFinger_LA, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_LA, MMD_MiddleFinger_LA, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_LA, MMD_MiddleFinger_LA, "XY")
+AlignBoneRotationOnPlane(MMD_IndexFinger_RA, MMD_MiddleFinger_RA, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_RA, MMD_MiddleFinger_RA, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_RA, MMD_MiddleFinger_RA, "XY")
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_MiddleFinger_L1, "XZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_MiddleFinger_L1, "XZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_MiddleFinger_L1, "XZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_MiddleFinger_R1, "XZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_MiddleFinger_R1, "XZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_MiddleFinger_R1, "XZ")
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_MiddleFinger_L1, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_MiddleFinger_L1, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_MiddleFinger_L1, "YZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_MiddleFinger_R1, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_MiddleFinger_R1, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_MiddleFinger_R1, "YZ")
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "XY")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "XY")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "XY")
+AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "XY")
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "XZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "XZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "XZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "XZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "XZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "XZ")
+
+AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "YZ")
+AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "YZ")
+AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "YZ")
+AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "YZ")
+
 # LegTipEX_L, Heel Adjustment
