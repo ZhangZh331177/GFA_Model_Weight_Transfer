@@ -51,9 +51,9 @@ bone_merging_list = [
     [["ArmTwist_R"], [("GFA_MWT_SKE_Hand1R", 1.0)]],
 
     [["Elbow_L"], [("GFA_MWT_SKE_Hand2L", 1.0)]],
-    [["HandTwist_L"], [("GFA_MWT_SKE_Hand2L", 1.0)]], # Is this correct???
+    [["HandTwist_L"], [("GFA_MWT_SKE_Hand2L", 0.9), ("GFA_MWT_SKE_Palm1L", 0.1)]], # Is this correct???
     [["Elbow_R"], [("GFA_MWT_SKE_Hand2R", 1.0)]],
-    [["HandTwist_R"], [("GFA_MWT_SKE_Hand2R", 1.0)]], # Is this correct???
+    [["HandTwist_R"], [("GFA_MWT_SKE_Hand2R", 0.9), ("GFA_MWT_SKE_Palm1R", 0.1)]], # Is this correct???
 
     [["Neck"], [("GFA_MWT_SKE_Head", 1.0)]],
     [["Head"], [("GFA_MWT_SKE_Head", 1.0)]],
