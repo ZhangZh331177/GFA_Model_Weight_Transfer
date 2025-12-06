@@ -125,11 +125,9 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     # Apply Rotation
     ApplyRotationOnPlane(RotatingBoneStart, RotationDiff, Plane)
 
-def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False, LengthRatioToTarget = 1.0):
+def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False, LengthRatioToTarget = 1.0, OtherAxisScaleFactor = 0.5):
+    # Make two bones's Length Identical by Scaling the bone.
     try:
-        # Make two bones's Length Identical by Scaling the bone.
-        OtherAxisScaleFactor = 0.5
-
         # Get Length Difference
         ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
         ScalingBoneEnd = GetNodeByNameRaiser(ScalingBone[1])
@@ -799,5 +797,38 @@ AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "YZ")
 AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "YZ")
 AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "YZ")
 AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "YZ")
+
+# Further Align Arm to align hand.
+MMD_FullArmWithHand_L = ("Arm_L", "MiddleFinger2_L")
+GOH_FullArmWithHand_L = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Palm4L_hide")
+MMD_FullArmWithHand_R = ("Arm_R", "MiddleFinger2_R")
+GOH_FullArmWithHand_R = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Palm4R_hide")
+
+AlignBoneRotationOnPlane(MMD_FullArmWithHand_L, GOH_FullArmWithHand_L, "YZ")
+AlignBoneRotationOnPlane(MMD_FullArmWithHand_R, GOH_FullArmWithHand_R, "YZ")
+AlignBoneRotationOnPlane(MMD_FullArmWithHand_L, GOH_FullArmWithHand_L, "XY")
+AlignBoneRotationOnPlane(MMD_FullArmWithHand_R, GOH_FullArmWithHand_R, "XY")
+
+MMD_LowerArmWithHand_L = ("Elbow_L", "MiddleFinger2_L")
+GOH_LowerArmWithHand_L = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
+MMD_LowerArmWithHand_R = ("Elbow_R", "MiddleFinger2_R")
+GOH_LowerArmWithHand_R = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm4R_hide")
+
+AlignBoneLength(MMD_LowerArmWithHand_L, GOH_LowerArmWithHand_L, LowerArmScalingAxis)
+AlignBoneLength(MMD_LowerArmWithHand_R, GOH_LowerArmWithHand_R, LowerArmScalingAxis)
+
+
+NormalizeScaleBreakLink("Wrist_L")
+NormalizeScaleBreakLink("Wrist_R")
+
+MMD_LowerWristToHand_L = ("Wrist_L", "MiddleFinger2_L")
+GOH_LowerWristToHand_L = ("Wrist_L", "GFA_MWT_SKE_Palm4L_hide")
+MMD_LowerWristToHand_R = ("Wrist_R", "MiddleFinger2_R")
+GOH_LowerWristToHand_R = ("Wrist_R", "GFA_MWT_SKE_Palm4R_hide")
+
+AlignBoneLength(MMD_LowerWristToHand_L, GOH_LowerWristToHand_L, "Y", OtherAxisScaleFactor=1.0)
+AlignBoneLength(MMD_LowerWristToHand_R, GOH_LowerWristToHand_R, "Y", OtherAxisScaleFactor=1.0)
+
+
 
 # LegTipEX_L, Heel Adjustment
