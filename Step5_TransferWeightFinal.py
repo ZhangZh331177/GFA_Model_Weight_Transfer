@@ -18,8 +18,8 @@ bone_merging_list = [
     [["LegD_R"], [("GFA_MWT_SKE_foot1R", 1.0)]],
     [["Knee_R"], [("GFA_MWT_SKE_foot2R", 1.0)]],
     [["KneeD_R"], [("GFA_MWT_SKE_foot2R", 1.0)]],
-    [["Ankle_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
-    [["AnkleD_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
+    [["Ankle_R"], [("GFA_MWT_SKE_foot2R", 0.5), ("GFA_MWT_SKE_foot3R", 0.5)]],
+    [["AnkleD_R"], [("GFA_MWT_SKE_foot2R", 0.5), ("GFA_MWT_SKE_foot3R", 0.5)]],
     # [["AnkleTip_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
     # [["LegTipEX_R"], [("GFA_MWT_SKE_foot3R", 1.0)]],
 
@@ -28,8 +28,8 @@ bone_merging_list = [
     [["LegD_L"], [("GFA_MWT_SKE_foot1L", 1.0)]],
     [["Knee_L"], [("GFA_MWT_SKE_foot2L", 1.0)]],
     [["KneeD_L"], [("GFA_MWT_SKE_foot2L", 1.0)]],
-    [["Ankle_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
-    [["AnkleD_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
+    [["Ankle_L"], [("GFA_MWT_SKE_foot2L", 0.5), ("GFA_MWT_SKE_foot3L", 0.5)]],
+    [["AnkleD_L"], [("GFA_MWT_SKE_foot2L", 0.5), ("GFA_MWT_SKE_foot3L", 0.5)]],
     # [["AnkleTip_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
     # [["LegTipEX_L"], [("GFA_MWT_SKE_foot3L", 1.0)]],
 
@@ -51,9 +51,9 @@ bone_merging_list = [
     [["ArmTwist_R"], [("GFA_MWT_SKE_Hand1R", 1.0)]],
 
     [["Elbow_L"], [("GFA_MWT_SKE_Hand2L", 1.0)]],
-    [["HandTwist_L"], [("GFA_MWT_SKE_Hand_rot1L", 1.0)]],
+    [["HandTwist_L"], [("GFA_MWT_SKE_Hand_rot1L", 1.0)]], # Is this correct???
     [["Elbow_R"], [("GFA_MWT_SKE_Hand2R", 1.0)]],
-    [["HandTwist_R"], [("GFA_MWT_SKE_Hand_rot1R", 1.0)]],
+    [["HandTwist_R"], [("GFA_MWT_SKE_Hand_rot1R", 1.0)]], # Is this correct???
 
     [["Neck"], [("GFA_MWT_SKE_Head", 1.0)]],
     [["Head"], [("GFA_MWT_SKE_Head", 1.0)]],
@@ -61,7 +61,7 @@ bone_merging_list = [
     [["Eye_R"], [("GFA_MWT_SKE_Head", 1.0)]],
 
 
-    [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
+    [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]], # Is this correct???
     [["IndexFinger1_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
     [["IndexFinger2_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
     [["IndexFinger3_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
@@ -78,7 +78,7 @@ bone_merging_list = [
     [["Thumb1_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
     [["Thumb2_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
 
-    [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
+    [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]], # Is this correct???
     [["IndexFinger1_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
     [["IndexFinger2_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
     [["IndexFinger3_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],

@@ -108,10 +108,10 @@ def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
     # Apply Rotation
     ApplyRotationOnPlane(RotatingBoneStart, RotationDiff, Plane)
 
-def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False):
+def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False, LengthRatioToTarget = 1.0):
     try:
         # Make two bones's Length Identical by Scaling the bone.
-        OtherAxisScaleFactor = 0.667
+        OtherAxisScaleFactor = 0.5
 
         # Get Length Difference
         ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
@@ -125,7 +125,7 @@ def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength 
         if UseProjectionLength:
             raise NotImplementedError("Scaling with projection length is not implemented!")
         else:
-            LengthRatio = GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)
+            LengthRatio = (GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)) * LengthRatioToTarget
         
         # Apply Scaling
         ## Use local coords to scale
@@ -405,9 +405,9 @@ print(ScalingFactor)
 
 for ScalingBone, ScalingWeight in zip(ScalingBones, ScalingWeights):
     CurrentStepScaling = ScalingWeight * ScalingFactor
-    CumulativeShoulderScale *= (CurrentStepScaling ** 0.667)
+    CumulativeShoulderScale *= (CurrentStepScaling ** 0.5)
     for CurrentBone in CurrentStepStartBones:
-        rt.scale(CurrentBone, rt.Point3((CurrentStepScaling ** 0.667), CurrentStepScaling, (CurrentStepScaling ** 0.667)))
+        rt.scale(CurrentBone, rt.Point3((CurrentStepScaling ** 0.5), CurrentStepScaling, (CurrentStepScaling ** 0.5)))
 
 #### Normalize shoulder scale
 for CurrentBone in UpperBodySteps[-1][1]: # Last step end bones
@@ -518,10 +518,10 @@ AlignBoneRotationOnPlane(MMD_UpperLegDRight, GOH_UpperLegRight, "XZ")
 
 ## LowerLeg: Scaling Y -> Rotation YZ -> Rotation XZ
 ## LowerLeg Scaling
-AlignBoneLength(MMD_LowerLegLeft, GOH_LowerLegLeft, LowerLegScalingAxis)
-AlignBoneLength(MMD_LowerLegRight, GOH_LowerLegRight, LowerLegScalingAxis)
-AlignBoneLength(MMD_LowerLegDLeft, GOH_LowerLegLeft, LowerLegScalingAxis)
-AlignBoneLength(MMD_LowerLegDRight, GOH_LowerLegRight, LowerLegScalingAxis)
+AlignBoneLength(MMD_LowerLegLeft, GOH_LowerLegLeft, LowerLegScalingAxis, LengthRatioToTarget=0.925)
+AlignBoneLength(MMD_LowerLegRight, GOH_LowerLegRight, LowerLegScalingAxis, LengthRatioToTarget=0.925)
+AlignBoneLength(MMD_LowerLegDLeft, GOH_LowerLegLeft, LowerLegScalingAxis, LengthRatioToTarget=0.925)
+AlignBoneLength(MMD_LowerLegDRight, GOH_LowerLegRight, LowerLegScalingAxis, LengthRatioToTarget=0.925)
 
 ## LowerLeg Rotation (YZ -> XZ)
 AlignBoneRotationOnPlane(MMD_LowerLegLeft, GOH_LowerLegLeft, "YZ")
@@ -544,6 +544,25 @@ AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
 AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerLegDRight, GOH_LowerLegRight, "XZ")
 
+## UpperLeg Re-Rotation To Match Foot Pos
+
+GOH_LegFinalLeft = ("Leg_L", "GFA_MWT_SKE_foot3L")
+GOH_LegFinalRight = ("Leg_R", "GFA_MWT_SKE_foot3R")
+
+MMD_LegFinalLeft = ("Leg_L", "Ankle_L")
+MMD_LegFinalRight = ("Leg_R", "Ankle_R")
+MMD_LegFinalDLeft = ("LegD_L", "AnkleD_L") # Why is there a "D" postfixed version?
+MMD_LegFinalDRight = ("LegD_R", "AnkleD_R") # Why is there a "D" postfixed version?
+
+AlignBoneRotationOnPlane(MMD_LegFinalLeft, GOH_LegFinalLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LegFinalLeft, GOH_LegFinalLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LegFinalDLeft, GOH_LegFinalLeft, "YZ")
+AlignBoneRotationOnPlane(MMD_LegFinalDLeft, GOH_LegFinalLeft, "XZ")
+AlignBoneRotationOnPlane(MMD_LegFinalRight, GOH_LegFinalRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LegFinalRight, GOH_LegFinalRight, "XZ")
+AlignBoneRotationOnPlane(MMD_LegFinalDRight, GOH_LegFinalRight, "YZ")
+AlignBoneRotationOnPlane(MMD_LegFinalDRight, GOH_LegFinalRight, "XZ")
+
 ## Normalize Foot Scale, BREAK LINK
 NormalizeScaleBreakLink(MMD_LowerLegLeft[1])
 NormalizeScaleBreakLink(MMD_LowerLegRight[1])
@@ -553,8 +572,8 @@ NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
 
 #### Align UpperArm
 ### UpperArm
-GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm2L")
-GOH_UpperArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm2R")
+GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
+GOH_UpperArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
 
 MMD_UpperArmLeft = ("Arm_L", "Elbow_L")
 MMD_UpperArmRight = ("Arm_R", "Elbow_R")
@@ -583,12 +602,11 @@ AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "XY")
 AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
 
 ### LowerArm
-GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
-GOH_LowerArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
+GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Hand_rot1L")
+GOH_LowerArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Hand_rot1R")
 
-
-MMD_LowerArmLeft = ("Elbow_L", "MiddleFinger1_L")
-MMD_LowerArmRight = ("Elbow_R", "MiddleFinger1_R")
+MMD_LowerArmLeft = ("Elbow_L", "Wrist_L")
+MMD_LowerArmRight = ("Elbow_R", "Wrist_R")
 
 LowerArmScalingAxis = "Y"
 
@@ -609,3 +627,5 @@ AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
 
 AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
 AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
+
+### FingerAlignment
