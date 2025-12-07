@@ -2,6 +2,7 @@ import bpy
 from bpy_types import bpy_types
 import os
 import json
+import time
 
 def ensure_addon_enabled(addon_name):
     """Check and enable a specific addon if available."""    
@@ -17,8 +18,9 @@ def ensure_addon_enabled(addon_name):
         return False
     
 def reset_blender():
-    """Remove all objects from the current scene."""
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    for obj in bpy.data.objects:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
 
 def ImportMMDFile(InputPath):
     # Import file
@@ -79,6 +81,13 @@ def HasParentOfName(InputObject, InputName):
             ParentObject = ParentObject.parent
     return False
 
+def IsJsonSerializable(obj) -> bool:
+    try:
+        json.dumps(obj)
+        return True
+    except (TypeError, OverflowError):
+        return False
+
 def MatToDict(mat):
     OutputDict = {}
     OutputDict["Props"] = dict()
@@ -93,7 +102,10 @@ def MatToDict(mat):
                     ## No to_list function
                     OutputDict["Props"][prop.identifier] = list(value)
                 else:
-                    OutputDict["Props"][prop.identifier] = value
+                    if IsJsonSerializable(value):
+                        OutputDict["Props"][prop.identifier] = value
+                    else:
+                        OutputDict["Props"][prop.identifier] = str(value)
             except Exception as e:
                 print(e)
     OutputDict["textures"] = dict()
@@ -117,31 +129,22 @@ def GetAllSceneMaterials():
                     result[obj.name][mat_id] = MatToDict(mat_slot.material)
     return result
 
-
-                    # result[obj.name][mat_id] = {
-                    #     'material': mat_slot.material,
-                    #     'name': mat_slot.material.name if mat_slot.material else None,
-                    #     'slot': mat_slot,
-                    #     'link': mat_slot.link  # 'DATA' or 'OBJECT'
-
 def SaveSceneMats(OutputJsonPath):
     with open(OutputJsonPath, 'w') as OutSceneMatJSON:
         # OutSceneMatJSON.write(str(GetAllSceneMaterials()))
         json.dump(GetAllSceneMaterials(), OutSceneMatJSON)
 
 def PortMMDToFBX(InputPath, OutputModelPath, OutputMatPath):
-    # Clear the current scene
+    # # Clear the current scene
     reset_blender()
-    ensure_addon_enabled("mmd_tools")
     # Import MMD Model
     ImportMMDFile(InputPath)
-    # Export to FBX
-    ExportFBXFile(OutputModelPath)
     # Export to Material
     SaveSceneMats(OutputMatPath)
-    # Clear the current scene
+    # Export to FBX
+    ExportFBXFile(OutputModelPath)
+    # # Clear the current scene
     reset_blender()
-    ensure_addon_enabled("mmd_tools")
 
 def EndsWithInSet(InputStr, PostFixSet):
     for CurrentPostFix in PostFixSet:
