@@ -1,5 +1,7 @@
 import bpy
+from bpy_types import bpy_types
 import os
+import json
 
 def ensure_addon_enabled(addon_name):
     """Check and enable a specific addon if available."""    
@@ -44,137 +46,132 @@ def ImportMMDFile(InputPath):
         print(f"Error importing MMD model: {e}")
         return False
 
-def SaveSceneMats(OutputJsonPath)
-
-def PortMMDToFBX(InputPath, OutputPath):
-    """
-    Import an MMD model (PMX/PMD) and export to FBX format.
-    
-    Args:
-        InputPath (str): Path to the MMD model file (.pmx or .pmd)
-        OutputPath (str): Path for the output FBX file (.fbx)
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    
-    
-    # Clear the current scene
-    clear_scene()
-    
-    # Import MMD Model
-    
-    # Prepare model for FBX export
-    prepare_for_export()
-    
-    # Export to FBX
+def ExportFBXFile(OutputPath):
     try:
         bpy.ops.export_scene.fbx(
             filepath=OutputPath,
             use_selection=False,
-            global_scale=1.0,
-            apply_scale_options='FBX_SCALE_ALL',
-            use_mesh_modifiers=True,
-            mesh_smooth_type='FACE',
+            use_visible=False,
+            use_active_collection=False,
+            object_types={'ARMATURE', 'CAMERA', 'EMPTY', 'LIGHT', 'MESH', 'OTHER'},
+            global_scale=1.0, 
+            apply_unit_scale=True, 
+            apply_scale_options='FBX_SCALE_NONE',
+            use_space_transform=True,
+            bake_space_transform=False,
             add_leaf_bones=False,
             primary_bone_axis='Y',
             secondary_bone_axis='X',
-            use_armature_deform_only=True,
-            bake_anim=False,
-            path_mode='COPY',
-            embed_textures=True
-        )
+            axis_forward='-Z',
+            axis_up='Y')
         print(f"Successfully exported: {OutputPath}")
         return True
     except Exception as e:
         print(f"Error exporting to FBX: {e}")
         return False
 
+def HasParentOfName(InputObject, InputName):
+    ParentObject = InputObject
+    while ParentObject != None:
+        if ParentObject.name == InputName:
+            return True
+        else:
+            ParentObject = ParentObject.parent
+    return False
 
-
-
-
-
-def prepare_for_export():
-    """Prepare the imported MMD model for FBX export."""
-    
-    # Find the MMD root object
-    mmd_root = None
-    for obj in bpy.context.scene.objects:
-        if obj.mmd_type == 'ROOT':
-            mmd_root = obj
-            break
-    
-    if mmd_root:
-        # Select the MMD root and make it active
-        bpy.ops.object.select_all(action='DESELECT')
-        mmd_root.select_set(True)
-        bpy.context.view_layer.objects.active = mmd_root
-        
-        # Convert MMD model to Blender-friendly format (optional)
-        try:
-            bpy.ops.mmd_tools.convert_to_blender_compatible()
-        except Exception:
-            pass  # This operator may not exist in all versions
-    
-    # Select all objects for export
-    bpy.ops.object.select_all(action='SELECT')
-    
-    # Apply transforms to all objects
-    for obj in bpy.context.scene.objects:
-        if obj.type in {'MESH', 'ARMATURE'}:
-            bpy.context.view_layer.objects.active = obj
+def MatToDict(mat):
+    OutputDict = {}
+    OutputDict["Props"] = dict()
+    for prop in mat.bl_rna.properties:
+        if not prop.is_readonly:
             try:
-                bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-            except Exception:
-                pass
+                value = getattr(mat, prop.identifier)
+                # Convert Blender types to Python types
+                if hasattr(value, 'to_list'):
+                    value = value[:]
+                elif type(value) == bpy_types.bpy_prop_array:
+                    ## No to_list function
+                    OutputDict["Props"][prop.identifier] = list(value)
+                else:
+                    OutputDict["Props"][prop.identifier] = value
+            except Exception as e:
+                print(e)
+    OutputDict["textures"] = dict()
+    if mat.use_nodes:
+        for node in mat.node_tree.nodes:
+            if node.type == 'TEX_IMAGE' and node.image:
+                OutputDict["textures"][node.name] = bpy.path.abspath(node.image.filepath)
+    return OutputDict
+
+def GetAllSceneMaterials():
+    """
+    Returns dict with additional info:
+    { MeshName : { MatID: { 'material': Material, 'name': str, 'slot': MaterialSlot }}}
+    """
+    result = {}
+    for obj in bpy.context.scene.objects:
+        if obj.type == 'MESH':
+            if not HasParentOfName(obj, 'rigidbodies'):
+                result[obj.name] = {}
+                for mat_id, mat_slot in enumerate(obj.material_slots):
+                    result[obj.name][mat_id] = MatToDict(mat_slot.material)
+    return result
 
 
-def batch_convert(input_folder, output_folder):
-    """
-    Batch convert all MMD models in a folder to FBX.
-    
-    Args:
-        input_folder (str): Folder containing MMD models
-        output_folder (str): Folder for output FBX files
-    """
-    # Create output folder if it doesn't exist
-    os.makedirs(output_folder, exist_ok=True)
-    
+                    # result[obj.name][mat_id] = {
+                    #     'material': mat_slot.material,
+                    #     'name': mat_slot.material.name if mat_slot.material else None,
+                    #     'slot': mat_slot,
+                    #     'link': mat_slot.link  # 'DATA' or 'OBJECT'
+
+def SaveSceneMats(OutputJsonPath):
+    with open(OutputJsonPath, 'w') as OutSceneMatJSON:
+        # OutSceneMatJSON.write(str(GetAllSceneMaterials()))
+        json.dump(GetAllSceneMaterials(), OutSceneMatJSON)
+
+def PortMMDToFBX(InputPath, OutputModelPath, OutputMatPath):
+    # Clear the current scene
+    reset_blender()
+    ensure_addon_enabled("mmd_tools")
+    # Import MMD Model
+    ImportMMDFile(InputPath)
+    # Export to FBX
+    ExportFBXFile(OutputModelPath)
+    # Export to Material
+    SaveSceneMats(OutputMatPath)
+    # Clear the current scene
+    reset_blender()
+    ensure_addon_enabled("mmd_tools")
+
+def EndsWithInSet(InputStr, PostFixSet):
+    for CurrentPostFix in PostFixSet:
+        if InputStr.endswith(CurrentPostFix):
+            return True
+    return False
+
+def batch_convert(InputRoot, OutputRoot):
     # Supported extensions
-    extensions = ('.pmx', '.pmd')
-    
-    # Find and convert all MMD files
-    for filename in os.listdir(input_folder):
-        if filename.lower().endswith(extensions):
-            input_path = os.path.join(input_folder, filename)
-            output_filename = os.path.splitext(filename)[0] + '.fbx'
-            output_path = os.path.join(output_folder, output_filename)
-            
-            print(f"\nConverting: {filename}")
-            PortMMDToFBX(input_path, output_path)
-    
-    print("\nBatch conversion complete!")
+    MMD_Model_ExtSet = {'.pmx', '.pmd'}
 
-
-# =============================================================================
-# Usage Examples
-# =============================================================================
+    TotalPortingCount = 0
+    for CurrentRoot, Dirs, Files in os.walk(InputRoot):
+        for CurrentFile in Files:
+            if EndsWithInSet(CurrentFile, MMD_Model_ExtSet):
+                InputPath = os.path.join(CurrentRoot, CurrentFile)
+                OutputDir = os.path.join(OutputRoot, os.path.relpath(CurrentRoot, InputRoot))
+                CurrentFilePrefix = os.path.splitext(CurrentFile)[0]
+                ModelOutputPath = os.path.join(OutputDir, CurrentFilePrefix+"_Model.fbx")
+                MatOutputPath = os.path.join(OutputDir, CurrentFilePrefix+"_Mat.json")
+                os.makedirs(output_Dir, exist_ok=True)
+                PortMMDToFBX(InputPath, ModelOutputPath, MatOutputPath)
+                TotalPortingCount += 1
+    print(f"Finised: {TotalPortingCount} Files Processed.")
 
 if __name__ == "__main__":
+    input_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\MMD_Input_Sample"
+    output_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\FBX_Output_Sample"
     # Ensure mmd_tools addon is enabled
     if not ensure_addon_enabled("mmd_tools"):
         print("Error: mmd_tools addon is not installed or cannot be enabled")
     else:
-        reset_blender() # Addons will be disabled after resetting blender
-        ensure_addon_enabled("mmd_tools")
-
-    
-        # Single file conversion
-        input_file = r"C:\Models\character.pmx"
-        output_file = r"C:\Models\character.fbx"
-        
-        PortMMDToFBX(input_file, output_file)
-        
-        # Batch conversion (uncomment to use)
-        # batch_convert(r"C:\MMD_Models", r"C:\FBX_Output")
+        batch_convert(input_Dir, output_Dir)
