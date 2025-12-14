@@ -462,6 +462,13 @@ if __name__ == "__main__":
     BodyAlignmentPlane = "XZ"
     GOH_Shoulder_Name_List = ["GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand1R"]
     MMD_Shoulder_Name_List = ["Arm_R", "Arm_L"]
+    GOH_ShoulderLeftName = "GFA_MWT_SKE_Hand1L"
+    GOH_ShoulderRightName = "GFA_MWT_SKE_Hand1R"
+    MMD_ShoulderLeftName = "ShoulderC_L"
+    MMD_ShoulderRightName = "ShoulderC_R"
+    MMD_NeckBoneName = "Neck"
+    MMD_HeadBoneName = "Head"
+    GOH_NeckBoneName = "GFA_MWT_SKE_Head"
 
     ## Overall Scaling Alignment
     if (MMD_ShoeIsBottom):
@@ -476,12 +483,12 @@ if __name__ == "__main__":
 
     ### Overall Rotation Alignment
     GOH_FootCenterPos = GetMeanPosFromNodeNameList([GOH_LowerLegLeft[1], GOH_LowerLegRight[1]])
-    GOH_ShoulderCenterPos = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List)
-    GOH_BodyDirection = GetProjectedRotationOfPos(GOH_FootCenterPos, GOH_ShoulderCenterPos, BodyAlignmentPlane)
+    GOH_ShoulderNeckCenterPos = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName])
+    GOH_BodyDirection = GetProjectedRotationOfPos(GOH_FootCenterPos, GOH_ShoulderNeckCenterPos, BodyAlignmentPlane)
 
     MMD_FootCenterPos = GetMeanPosFromNodeNameList([MMD_LowerLegLeft[1], MMD_LowerLegRight[1]])
-    MMD_ShoulderCenterPos = GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List)
-    MMD_BodyDirection = GetProjectedRotationOfPos(MMD_FootCenterPos, MMD_ShoulderCenterPos, BodyAlignmentPlane)
+    MMD_ShoulderNeckCenterPos = GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName])
+    MMD_BodyDirection = GetProjectedRotationOfPos(MMD_FootCenterPos, MMD_ShoulderNeckCenterPos, BodyAlignmentPlane)
 
     BodyDirectionDiff = GOH_BodyDirection - MMD_BodyDirection # This will also be used in upper body alignment!
     ApplyRotationOnPlane(MMD_Root, GOH_BodyDirection - MMD_BodyDirection, BodyAlignmentPlane)
@@ -502,12 +509,6 @@ if __name__ == "__main__":
     ]
     GOH_UpperBodySourceList = ["GFA_MWT_SKE_foot1L", "GFA_MWT_SKE_foot1R"]
     GOH_UpperBodyTargetList = ["GFA_MWT_SKE_Clavicle_left", "GFA_MWT_SKE_Clavicle_right"]
-    GOH_ShoulderLeftName = "GFA_MWT_SKE_Hand1L"
-    GOH_ShoulderRightName = "GFA_MWT_SKE_Hand1R"
-    MMD_ShoulderLeftName = "ShoulderC_L"
-    MMD_ShoulderRightName = "ShoulderC_R"
-    MMD_NeckBoneName = "Neck"
-    GOH_NeckBoneName = "GFA_MWT_SKE_Head"
     
     ### Get the weight of each Step of upper body
     UpperBodyOverAllVector = GetMeanPosFromNodeNameList(MMD_UpperBodyChain[-1]) - GetMeanPosFromNodeNameList(MMD_UpperBodyChain[0])
@@ -584,12 +585,23 @@ if __name__ == "__main__":
 
     ### Distribute Upper body offset
     ### Distribute offset
-    GOH_UpperBodyTargetList_With_Neck = GOH_UpperBodyTargetList + [GOH_NeckBoneName]
-    MMD_UpperBodyTargetList_With_Neck = MMD_UpperBodyChain[-1] + [MMD_NeckBoneName]
+    GOH_UpperBodyTargetList_With_Neck = GOH_UpperBodyTargetList + [GOH_NeckBoneName, GOH_NeckBoneName]
+    MMD_UpperBodyTargetList_With_Neck = MMD_UpperBodyChain[-1] + [MMD_NeckBoneName, MMD_NeckBoneName]
     UpperBodyWithNeckOffset = GetMeanPosFromNodeNameList(GOH_UpperBodyTargetList_With_Neck) - GetMeanPosFromNodeNameList(MMD_UpperBodyTargetList_With_Neck)
 
+    #### Decrease last step weight for offset
+    LastStepOffsetWeightRatio = 0.25
+    UpperBodyStepOffsetWeightSum = 0
+    UpperBodyStepOffsetWeight = list()
     for CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw in UpperBodySteps:
-        CurrentStepWeight = CurrentStepWeightRaw / TotalWeight
+        UpperBodyStepOffsetWeightSum += CurrentStepWeightRaw
+        UpperBodyStepOffsetWeight.append(CurrentStepWeightRaw)
+    UpperBodyStepOffsetWeightSum -= UpperBodyStepOffsetWeight[-1] * (1-LastStepOffsetWeightRatio)
+    UpperBodyStepOffsetWeight[-1] = UpperBodyStepOffsetWeight[-1] * LastStepOffsetWeightRatio
+
+
+    for (CurrentStepStartBones, CurrentStepEndBones, CurrentStepWeightRaw), CurrentStepWeightOffset in zip(UpperBodySteps, UpperBodyStepOffsetWeight):
+        CurrentStepWeight = CurrentStepWeightOffset / UpperBodyStepOffsetWeightSum
         for CurrentBoneName in CurrentStepEndBones:
             CurrentBone = GetNodeByNameRaiser(CurrentBoneName)
             CurrentBone.pos = CurrentBone.pos + (UpperBodyWithNeckOffset * CurrentStepWeight)
@@ -611,7 +623,7 @@ if __name__ == "__main__":
     GetNodeByNameRaiser(MMD_ShoulderRightName).pos = GetNodeByNameRaiser(GOH_ShoulderRightName).pos
     
     #### Get UpperBody / LowerBody Scale Ratio
-    UpperBodyFittingFactor = 0.25
+    UpperBodyFittingFactor = 0.375
     LowerBodyFittingFactor = 0.25
 
     UpperBodyScaling = GetMeanScale(MMD_NeckBoneName)
@@ -635,7 +647,6 @@ if __name__ == "__main__":
     GetNodeByNameRaiser(MMD_UpperLegDRight[0]).pos = GetNodeByNameRaiser(MMD_UpperLegDRight[0]).pos - LegLRFittingOffset
 
     ### Lower body alignment
-
     #### UpperLeg: Scaling Y -> Rotation YZ -> Rotation XZ
     #### UpperLeg Scaling
     AlignBoneLength(MMD_UpperLegLeft, GOH_UpperLegLeft, UpperLegScalingAxis)
@@ -733,10 +744,19 @@ if __name__ == "__main__":
 
     AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
     AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
-    # # Further Fixing
+    # # Arm Further Fixing
     if MMD_Source_Config == "GF2":
         ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 1.25, "YZ")
         ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -1.25, "YZ")
+
+    # # Head Further Fixing
+    if MMD_Source_Config == "GF2":
+        # 0.875
+        rt.scale(GetNodeByNameRaiser(MMD_NeckBoneName), rt.Point3(0.925, 0.925, 0.925))
+        HeadBonePos = GetNodeByNameRaiser(MMD_HeadBoneName).pos
+        NeckBonePos = GetNodeByNameRaiser(MMD_NeckBoneName).pos
+        GetNodeByNameRaiser(MMD_HeadBoneName).pos = NeckBonePos + ((HeadBonePos - NeckBonePos) * 0.85)
+
 
     ### Normalize Hand scale
     NormalizeScaleBreakLink("Wrist_L")
