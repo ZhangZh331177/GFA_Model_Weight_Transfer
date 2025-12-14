@@ -160,13 +160,13 @@ def batch_convert(InputRoot, OutputRoot):
     for CurrentRoot, Dirs, Files in os.walk(InputRoot):
         for CurrentFile in Files:
             if EndsWithInSet(CurrentFile, MMD_Model_ExtSet):
-                InputPath = os.path.join(CurrentRoot, CurrentFile)
-                OutputDir = os.path.join(OutputRoot, os.path.relpath(CurrentRoot, InputRoot))
+                CurrentFileInputPath = os.path.join(CurrentRoot, CurrentFile)
+                CurrentFileOutputDir = os.path.join(OutputRoot, os.path.relpath(CurrentRoot, InputRoot))
                 CurrentFilePrefix = os.path.splitext(CurrentFile)[0]
-                ModelOutputPath = os.path.join(OutputDir, CurrentFilePrefix+"_Model.fbx")
-                MatOutputPath = os.path.join(OutputDir, CurrentFilePrefix+"_Mat.json")
-                os.makedirs(output_Dir, exist_ok=True)
-                PortMMDToFBX(InputPath, ModelOutputPath, MatOutputPath)
+                ModelOutputPath = os.path.join(CurrentFileOutputDir, CurrentFilePrefix+"_Model.fbx")
+                MatOutputPath = os.path.join(CurrentFileOutputDir, CurrentFilePrefix+"_Mat.json")
+                os.makedirs(CurrentFileOutputDir, exist_ok=True)
+                PortMMDToFBX(CurrentFileInputPath, ModelOutputPath, MatOutputPath)
                 TotalPortingCount += 1
     print(f"Finised: {TotalPortingCount} Files Processed.")
 
