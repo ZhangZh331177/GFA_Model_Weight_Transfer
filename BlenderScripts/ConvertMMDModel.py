@@ -32,6 +32,7 @@ def ImportMMDFile(InputPath):
             clean_model=True,
             remove_doubles=False,
             fix_IK_links=False,
+            # ik_loop_factor=5,
             apply_bone_fixed_axis=False,
             rename_bones=True,
             use_underscore=False,
@@ -133,11 +134,50 @@ def SaveSceneMats(OutputJsonPath):
         # OutSceneMatJSON.write(str(GetAllSceneMaterials()))
         json.dump(GetAllSceneMaterials(), OutSceneMatJSON)
 
+def CleanTargetObjects(target_names):
+    """
+    Deletes objects named 'joints' and 'rigidbodies' and all their children.
+    """
+    # target_names = {'joints', 'rigidbodies'}
+    
+    # Build parent map for faster lookup
+    parent_map = {}
+    for obj in bpy.data.objects:
+        if obj.parent:
+            if obj.parent not in parent_map:
+                parent_map[obj.parent] = []
+            parent_map[obj.parent].append(obj)
+            
+    def get_descendants(parent_obj):
+        descendants = []
+        if parent_obj in parent_map:
+            for child in parent_map[parent_obj]:
+                descendants.append(child)
+                descendants.extend(get_descendants(child))
+        return descendants
+
+    objects_to_delete = set()
+    for obj in bpy.data.objects:
+        if obj.name in target_names:
+            objects_to_delete.add(obj)
+            for descendant in get_descendants(obj):
+                objects_to_delete.add(descendant)
+    
+    if objects_to_delete:
+        print(f"Cleanup: Removing {len(objects_to_delete)} objects related to {target_names}")
+        for obj in objects_to_delete:
+            try:
+                bpy.data.objects.remove(obj, do_unlink=True)
+            except Exception as e:
+                print(f"Error removing {obj.name}: {e}")
+
 def PortMMDToFBX(InputPath, OutputModelPath, OutputMatPath):
     # # Clear the current scene
     reset_blender()
     # Import MMD Model
     ImportMMDFile(InputPath)
+    # Cleanup joints and rigidbodies
+    CleanTargetObjects({'joints', 'rigidbodies'})
     # Export to Material
     SaveSceneMats(OutputMatPath)
     # Export to FBX
