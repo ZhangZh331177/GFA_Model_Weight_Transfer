@@ -282,13 +282,111 @@ def GetVectorMainAxis(StartNodeNameList, EndNodeNameList):
         else:
             return("-", "Z")
 
+def GetChildPosDiffWihtParentRotation(ChildObject, ParentObject, Rotation, LocalAxis, RotateBack = True):
+    OriginalChildPos = ChildObject.pos
+    ApplyRotationOnLocalAxis(ParentObject, Rotation, LocalAxis)
+    RotatedChildPos = ChildObject.pos
+    if RotateBack:
+        ApplyRotationOnLocalAxis(ParentObject, -Rotation, LocalAxis)
+    return RotatedChildPos - OriginalChildPos
+
+def GetPoseValueByAxis(InputPos, InputAxis):
+    AxisDir, AxisName = InputAxis
+    if AxisName == "X":
+        ReturnValue =  InputPos.x
+    elif AxisName == "Y":
+        ReturnValue =  InputPos.y
+    elif AxisName == "Z":
+        ReturnValue =  InputPos.z
+    else:
+        raise ValueError("Name of InputAxis is not in XYZ !")
+    
+    if AxisDir == "+":
+        return ReturnValue
+    elif AxisDir == "-":
+        return -ReturnValue
+    else:
+        raise ValueError("Direction of InputAxis is not + nor - !")
+
+def GetExpectedRotationAxis(BoneName, FrontAxis, UpAxis):
+    FrontAxisDir, FrontAxisName = FrontAxis
+    # Create a dummy object and attach to Current Bone
+    CurrentObject = GetNodeByNameRaiser(BoneName)
+    DummyObject = rt.Dummy()
+
+    if FrontAxisDir == "+":
+        OffsetValue = 10.0
+    elif FrontAxisDir == "-":
+        OffsetValue = -10.0
+    else:
+        raise ValueError("Direction of FrontAis is not + nor - !")
+    
+    if FrontAxisName == "X":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(OffsetValue, 0, 0)
+    elif FrontAxisName == "Y":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(0, OffsetValue, 0)
+    elif FrontAxisName == "Z":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(0, 0, OffsetValue)
+    else:
+        raise ValueError("Name of FrontAxis is not in XYZ !")
+    
+    DummyObject.parent = CurrentObject
+
+    AxisOffsetList = list()
+    for AxisName in ["X", "Y", "Z"]:
+        for AxisDir, CurrentRotation in zip(["+", "-"], [+45, -45]):
+            CurrentRotateOffset = GetChildPosDiffWihtParentRotation(DummyObject, CurrentObject, CurrentRotation, AxisName, RotateBack = True)
+            CurrentRotateOffsetValue = GetPoseValueByAxis(CurrentRotateOffset, UpAxis)
+            AxisOffsetList.append([[AxisDir, AxisName], CurrentRotateOffsetValue])
+    
+    AxisOffsetList.sort(key=lambda x: x[1])
+    rt.delete(DummyObject)
+
+    return AxisOffsetList[-1][0]
+
+
+def AutoRotateFinger(FingerBoneChain, FingerPointingAxis, RotatingTowardsAxis, RotationAng):
+    BoneRotationDict = dict()
+    LastBoneCount = 1
+    LastBoneRotationRatio = 0.5
+    for FingerBone in FingerBoneChain:
+        BoneRotationDict[FingerBone] = GetExpectedRotationAxis(FingerBone, FingerPointingAxis, RotatingTowardsAxis)
+    
+    for FingerBone in FingerBoneChain[:len(FingerBone) - LastBoneCount]:
+        RotationAxisDir, RotationAxisName = BoneRotationDict[FingerBone]
+        if RotationAxisDir == "+":
+            ApplyRotationOnLocalAxisByName(FingerBone, RotationAng, RotationAxisName)
+        elif RotationAxisDir == "-":
+            ApplyRotationOnLocalAxisByName(FingerBone, -RotationAng, RotationAxisName)
+        else:
+            raise ValueError("RotationAxisDir is not + nor - !")
+    
+    LastBoneRotationAng = RotationAng * LastBoneRotationRatio
+    for FingerBone in FingerBoneChain[len(FingerBone) - LastBoneCount:]:
+        RotationAxisDir, RotationAxisName = BoneRotationDict[FingerBone]
+        if RotationAxisDir == "+":
+            ApplyRotationOnLocalAxisByName(FingerBone, LastBoneRotationAng, RotationAxisName)
+        elif RotationAxisDir == "-":
+            ApplyRotationOnLocalAxisByName(FingerBone, -LastBoneRotationAng, RotationAxisName)
+        else:
+            raise ValueError("RotationAxisDir is not + nor - !")
+        # RotationAxisDir, RotationAxisName = GetExpectedRotationAxis(FingerBone, FingerPointingAxis, RotatingTowardsAxis)
+
+
+
+
 if __name__ == "__main__":
     # We assume that both models are facing X+ (Right), and Head up to Z+ (UP), with foot contact the ground (Z=0)
+    MMD_Source_Config = "GF2"
     MMD_RootName = "GirlsFrontline AlvaDefault"
     MMD_MeshName = "GirlsFrontline AlvaDefault_mesh"
     MMD_Root = GetNodeByNameRaiser(MMD_RootName)
     MMD_Mesh = GetNodeByNameRaiser(MMD_MeshName)
     MMD_ShoeIsBottom = True
+
+    SourceConfigs = {"GF2"}
+    if MMD_Source_Config not in SourceConfigs:
+        raise ValueError("Unknown Source Config!")
 
     ## Axis Alignment
     GOH_Shoulder_LR = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand1R")
@@ -606,17 +704,22 @@ if __name__ == "__main__":
 
     ### LowerArm
     GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Hand_rot1L")
+    GOH_LowerArmLeft_LengthOnly =  ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
     GOH_LowerArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Hand_rot1R")
+    GOH_LowerArmRight_LengthOnly = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm3R") # The Original model Is ***King not symmetrical!!!!!!
+    
 
     MMD_LowerArmLeft = ("Elbow_L", "Wrist_L")
+    MMD_LowerArmLeft_LengthOnly =  ("Elbow_L", "MiddleFinger2_L")
     MMD_LowerArmRight = ("Elbow_R", "Wrist_R")
+    MMD_LowerArmRight_LengthOnly = ("Elbow_R", "MiddleFinger2_R") # The Original model Is ***King not symmetrical!!!!!!
 
     LowerArmScalingAxis = "Y"
 
     ## LowerArm: Scaling Y -> Rotation YZ -> Rotation XZ
     ### LowerArm Scaling
-    AlignBoneLength(MMD_LowerArmLeft, GOH_LowerArmLeft, LowerArmScalingAxis)
-    AlignBoneLength(MMD_LowerArmRight, GOH_LowerArmRight, LowerArmScalingAxis)
+    AlignBoneLength(MMD_LowerArmLeft_LengthOnly, GOH_LowerArmLeft_LengthOnly, LowerArmScalingAxis)
+    AlignBoneLength(MMD_LowerArmRight_LengthOnly, GOH_LowerArmRight_LengthOnly, LowerArmScalingAxis)
 
     ### LowerArm Rotation (YZ -> XZ)
     AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "YZ")
@@ -630,7 +733,14 @@ if __name__ == "__main__":
 
     AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
     AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
+    # # Further Fixing
+    if MMD_Source_Config == "GF2":
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 1.25, "YZ")
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -1.25, "YZ")
 
+    ### Normalize Hand scale
+    NormalizeScaleBreakLink("Wrist_L")
+    NormalizeScaleBreakLink("Wrist_R")
     ### FingerAlignment
     MMD_IndexFinger_L1 = ("IndexFinger1_L", "IndexFinger2_L")
     MMD_IndexFinger_L2 = ("IndexFinger2_L", "IndexFinger3_L")
@@ -654,41 +764,18 @@ if __name__ == "__main__":
     MMD_Thumb_R1 = ("Thumb0_R", "Thumb1_R")
     MMD_Thumb_R2 = ("Thumb1_R", "Thumb2_R")
 
-    GOH_ThumbRotation = -20
-    GOH_FingerRotation = 45 # ?
 
-    ## Solve Later
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_L1[0], GOH_ThumbRotation, "X")
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[0], GOH_ThumbRotation, "X")
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_L2[1], GOH_ThumbRotation, "X")
+    # Align Thumb
+    if MMD_Source_Config == "GF2":
+        GOH_ThumbRotation = 20
+        LeftThumbPointingAxis = ["+", "X"]
+        RightThumbPointingAxis = ["+", "X"]
+        ThumbRotatingTargetAxis = ["-", "Z"]
+        AutoRotateFinger([MMD_Thumb_L1[0], MMD_Thumb_L2[0], MMD_Thumb_L2[1],], LeftThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
+        AutoRotateFinger([MMD_Thumb_R1[0], MMD_Thumb_R2[0], MMD_Thumb_R2[1],], RightThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
 
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_R1[0], -GOH_ThumbRotation, "X")
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[0], -GOH_ThumbRotation, "X")
-    # ApplyRotationOnLocalAxisByName(MMD_Thumb_R2[1], -GOH_ThumbRotation, "X")
-    
-
-    ### Other Fingers
-    #### Try to get rotation direction for left hand
-    OriginalLeftTestNodePos = GetMeanPosFromNodeNameList([MMD_IndexFinger_L1[1],])
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L1[0], GOH_FingerRotation, "X")
-    RotatedLeftTestNodePos = GetMeanPosFromNodeNameList([MMD_IndexFinger_L1[1],])
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L1[0], -GOH_FingerRotation, "X")
-    #### If the rotation is wrong, flip the rotation.
-    if RotatedLeftTestNodePos.z < OriginalLeftTestNodePos.z:
-        GOH_FingerRotation_Left = GOH_FingerRotation
-    else:
-        GOH_FingerRotation_Left = -GOH_FingerRotation
-    #### Try to get rotation direction for Right hand
-    OriginalRightTestNodePos = GetMeanPosFromNodeNameList([MMD_IndexFinger_R1[1],])
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R1[0], GOH_FingerRotation, "X")
-    RotatedRightTestNodePos = GetMeanPosFromNodeNameList([MMD_IndexFinger_R1[1],])
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R1[0], -GOH_FingerRotation, "X")
-    #### If the rotation is wrong, flip the rotation.
-    if RotatedRightTestNodePos.z < OriginalRightTestNodePos.z:
-        GOH_FingerRotation_Right = GOH_FingerRotation
-    else:
-        GOH_FingerRotation_Right = -GOH_FingerRotation
-    
+    GOH_FingerRotation = 40 # ?
+    ### Align and rotate other fingers.
     AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "XY")
     AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "YZ")
     AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_LowerArmLeft, "XY")
@@ -723,38 +810,18 @@ if __name__ == "__main__":
     AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "XY")
     AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "YZ")
 
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L1[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L2[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_L2[1], GOH_FingerRotation_Left, "X")
+    LeftHandPointingAxis = ["+", "Y"]
+    RightHandPointingAxis = ["-", "Y"]
+    RotatingTargetAxis = ["-", "Z"]
+    AutoRotateFinger([MMD_IndexFinger_L1[0], MMD_IndexFinger_L2[0], MMD_IndexFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
 
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L1[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L2[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_L2[1], GOH_FingerRotation_Left, "X")
-
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L1[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L2[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_L2[1], GOH_FingerRotation_Left, "X")
-
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_L1[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_L2[0], GOH_FingerRotation_Left, "X")
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_L2[1], GOH_FingerRotation_Left, "X")
-
-
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R1[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R2[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_IndexFinger_R2[1], GOH_FingerRotation_Right, "X")
-
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R1[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R2[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_MiddleFinger_R2[1], GOH_FingerRotation_Right, "X")
-
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R1[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R2[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_LittleFinger_R2[1], GOH_FingerRotation_Right, "X")
-
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_R1[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_R2[0], GOH_FingerRotation_Right, "X")
-    ApplyRotationOnLocalAxisByName(MMD_RingFinger_R2[1], GOH_FingerRotation_Right, "X")
+    AutoRotateFinger([MMD_IndexFinger_R1[0], MMD_IndexFinger_R2[0], MMD_IndexFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
 
     MMD_IndexFinger_LA = ("IndexFinger1_L", "IndexFinger3_L")
     MMD_MiddleFinger_LA = ("MiddleFinger1_L", "MiddleFinger3_L")
@@ -807,36 +874,3 @@ if __name__ == "__main__":
     AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "YZ")
     AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "YZ")
     AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "YZ")
-
-    # Further Align Arm to align hand.
-    MMD_FullArmWithHand_L = ("Arm_L", "MiddleFinger2_L")
-    GOH_FullArmWithHand_L = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Palm4L_hide")
-    MMD_FullArmWithHand_R = ("Arm_R", "MiddleFinger2_R")
-    GOH_FullArmWithHand_R = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Palm4R_hide")
-
-    AlignBoneRotationOnPlane(MMD_FullArmWithHand_L, GOH_FullArmWithHand_L, "YZ")
-    AlignBoneRotationOnPlane(MMD_FullArmWithHand_R, GOH_FullArmWithHand_R, "YZ")
-    AlignBoneRotationOnPlane(MMD_FullArmWithHand_L, GOH_FullArmWithHand_L, "XY")
-    AlignBoneRotationOnPlane(MMD_FullArmWithHand_R, GOH_FullArmWithHand_R, "XY")
-
-    MMD_LowerArmWithHand_L = ("Elbow_L", "MiddleFinger2_L")
-    GOH_LowerArmWithHand_L = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
-    MMD_LowerArmWithHand_R = ("Elbow_R", "MiddleFinger2_R")
-    GOH_LowerArmWithHand_R = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm4R_hide")
-
-    # GOH Skeleton Is ***King not symmetrical!!!!!!
-    MeanScale_LowerArmWithHand = (GetBoneLength(GOH_LowerArmWithHand_R) + GetBoneLength(GOH_LowerArmWithHand_L)) / (GetBoneLength(MMD_LowerArmWithHand_R) + GetBoneLength(MMD_LowerArmWithHand_L))
-    ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_LowerArmWithHand_L[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 0.5)
-    ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_LowerArmWithHand_R[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 0.5)
-
-    NormalizeScaleBreakLink("Wrist_L")
-    NormalizeScaleBreakLink("Wrist_R")
-
-    MMD_WristToHand_L = ("Wrist_L", "MiddleFinger2_L")
-    GOH_WristToHand_L = ("Wrist_L", "GFA_MWT_SKE_Palm4L_hide")
-    MMD_WristToHand_R = ("Wrist_R", "MiddleFinger2_R")
-    GOH_WristToHand_R = ("Wrist_R", "GFA_MWT_SKE_Palm4R_hide")
-
-    MeanScale_LowerArmWithHand = (GetBoneLength(GOH_WristToHand_R) + GetBoneLength(GOH_WristToHand_L)) / (GetBoneLength(MMD_WristToHand_R) + GetBoneLength(MMD_WristToHand_L))
-    ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_WristToHand_L[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 1.0)
-    ApplyScaleOnLocalAxis(GetNodeByNameRaiser(MMD_WristToHand_R[0]), MeanScale_LowerArmWithHand, LowerArmScalingAxis, 1.0)
