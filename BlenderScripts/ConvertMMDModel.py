@@ -32,7 +32,6 @@ def ImportMMDFile(InputPath):
             clean_model=True,
             remove_doubles=False,
             fix_IK_links=False,
-            ik_loop_factor=5,
             apply_bone_fixed_axis=False,
             rename_bones=True,
             use_underscore=False,
