@@ -48,28 +48,26 @@ def ImportMMDFile(InputPath):
         print(f"Error importing MMD model: {e}")
         return False
 
-def ExportFBXFile(OutputPath):
+def ExportDAEFile(OutputPath):
     try:
-        bpy.ops.export_scene.fbx(
+        bpy.ops.wm.collada_export(
             filepath=OutputPath,
-            use_selection=False,
-            use_visible=False,
-            use_active_collection=False,
-            object_types={'ARMATURE', 'CAMERA', 'EMPTY', 'LIGHT', 'MESH', 'OTHER'},
-            global_scale=1.0, 
-            apply_unit_scale=True, 
-            apply_scale_options='FBX_SCALE_NONE',
-            use_space_transform=True,
-            bake_space_transform=False,
-            add_leaf_bones=False,
-            primary_bone_axis='Y',
-            secondary_bone_axis='X',
-            axis_forward='-Z',
-            axis_up='Y')
+            check_existing=False,
+            
+            apply_modifiers=True,
+            triangulate=False, 
+
+            export_global_forward_selection='Y',
+            export_global_up_selection='Z',
+
+            include_animations=False,
+
+            keep_bind_info=True
+            )
         print(f"Successfully exported: {OutputPath}")
         return True
     except Exception as e:
-        print(f"Error exporting to FBX: {e}")
+        print(f"Error exporting to DAE: {e}")
         return False
 
 def HasParentOfName(InputObject, InputName):
@@ -155,7 +153,7 @@ def CleanTargetObjects(TargetNameSet):
     for obj in RemovingObjects:
         bpy.data.objects.remove(obj, do_unlink=True)
 
-def PortMMDToFBX(InputPath, OutputModelPath, OutputMatPath):
+def PortMMDToDAE(InputPath, OutputModelPath, OutputMatPath):
     # # Clear the current scene
     reset_blender()
     # Import MMD Model
@@ -164,8 +162,8 @@ def PortMMDToFBX(InputPath, OutputModelPath, OutputMatPath):
     CleanTargetObjects({'joints', 'rigidbodies'})
     # Export to Material
     SaveSceneMats(OutputMatPath)
-    # Export to FBX
-    ExportFBXFile(OutputModelPath)
+    # Export to DAE
+    ExportDAEFile(OutputModelPath)
     # # Clear the current scene
     reset_blender()
 
@@ -186,16 +184,16 @@ def batch_convert(InputRoot, OutputRoot):
                 CurrentFileInputPath = os.path.join(CurrentRoot, CurrentFile)
                 CurrentFileOutputDir = os.path.join(OutputRoot, os.path.relpath(CurrentRoot, InputRoot))
                 CurrentFilePrefix = os.path.splitext(CurrentFile)[0]
-                ModelOutputPath = os.path.join(CurrentFileOutputDir, CurrentFilePrefix+"_Model.fbx")
+                ModelOutputPath = os.path.join(CurrentFileOutputDir, CurrentFilePrefix+"_Model.dae")
                 MatOutputPath = os.path.join(CurrentFileOutputDir, CurrentFilePrefix+"_Mat.json")
                 os.makedirs(CurrentFileOutputDir, exist_ok=True)
-                PortMMDToFBX(CurrentFileInputPath, ModelOutputPath, MatOutputPath)
+                PortMMDToDAE(CurrentFileInputPath, ModelOutputPath, MatOutputPath)
                 TotalPortingCount += 1
     print(f"Finised: {TotalPortingCount} Files Processed.")
 
 if __name__ == "__main__":
     input_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\MMD_Input_Sample"
-    output_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\FBX_Output_Sample"
+    output_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\DAE_Output_Sample"
     # Ensure mmd_tools addon is enabled
     if not ensure_addon_enabled("mmd_tools"):
         print("Error: mmd_tools addon is not installed or cannot be enabled")
