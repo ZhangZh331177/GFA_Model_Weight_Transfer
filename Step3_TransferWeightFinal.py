@@ -103,21 +103,17 @@ bone_merging_list = [
     
 ]
 
-bone_names_set = set()
-for source_bones, target_items in bone_merging_list:
-    for bone_name in source_bones:
-        bone_names_set.add(bone_name)
-    for bone_name, bone_weight in target_items:
-        bone_names_set.add(bone_name)
-for bone_name in bone_names_set:
-    if rt.getNodeByName(bone_name) == None:
-        raise(NameError("Bone '"+bone_name+"' do not exist!"))
-
-
 bone_merging_dict = dict()
 for source_group, target_group in bone_merging_list:
+    for target_name in target_group:
+        if rt.getNodeByName(target_name) == None:
+            raise(NameError("Error: Target Bone '"+target_name+"' do not exist!"))
     for source_name in source_group:
+        if rt.getNodeByName(source_name) == None:
+            print("Warning: Source Bone '" + str(source_name) + "' does not exist in scene, will be skipped if encountered.")
+            continue
         bone_merging_dict[source_name] = target_group
+        
 
 body_mesh = rt.selection[0]
 body_skin = body_mesh.skin
