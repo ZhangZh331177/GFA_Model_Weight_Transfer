@@ -370,9 +370,9 @@ def GetExpectedRotationAxis(BoneName, FrontAxis, UpAxis):
     DummyObject = rt.Dummy()
 
     if FrontAxisDir == "+":
-        OffsetValue = 10.0
+        OffsetValue = 30.0
     elif FrontAxisDir == "-":
-        OffsetValue = -10.0
+        OffsetValue = -30.0
     else:
         raise ValueError("Direction of FrontAis is not + nor - !")
     
@@ -403,9 +403,10 @@ def GetExpectedRotationAxis(BoneName, FrontAxis, UpAxis):
 def AutoRotateFinger(FingerBoneChain, FingerPointingAxis, RotatingTowardsAxis, RotationAng):
     BoneRotationDict = dict()
     LastBoneCount = 1
-    LastBoneRotationRatio = 0.5
+    LastBoneRotationRatio = 0.75
     for FingerBone in FingerBoneChain:
         BoneRotationDict[FingerBone] = GetExpectedRotationAxis(FingerBone, FingerPointingAxis, RotatingTowardsAxis)
+        print(FingerBone, BoneRotationDict[FingerBone])
     
     for FingerBone in FingerBoneChain[:len(FingerBone) - LastBoneCount]:
         RotationAxisDir, RotationAxisName = BoneRotationDict[FingerBone]
@@ -433,8 +434,8 @@ def AutoRotateFinger(FingerBoneChain, FingerPointingAxis, RotatingTowardsAxis, R
 if __name__ == "__main__":
     # We assume that both models are facing X+ (Right), and Head up to Z+ (UP), with foot contact the ground (Z=0)
     MMD_Source_Config = "GF2"
-    MMD_RootName = "GirlsFrontline ClukayDefault"
-    MMD_MeshName = "GirlsFrontline ClukayDefault_mesh"
+    MMD_RootName = "GAN_arm"
+    MMD_MeshName = "GAN_mesh"
     MMD_Root = GetNodeByNameRaiser(MMD_RootName)
     MMD_Mesh = GetNodeByNameRaiser(MMD_MeshName)
     MMD_ShoeIsBottom = True
@@ -463,13 +464,13 @@ if __name__ == "__main__":
         GOHHeadAxisDir, GOHHeadAxisName = GetVectorMainAxis(GOH_Foot_LR, GOH_Shoulder_LR)
         MMDHeadAxisDir, MMDHeadAxisName = GetVectorMainAxis(MMD_Foots_LR, MMD_Shoulder_LR)
 
-    GOHShoulderAxisDir, GOHShoulderName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
-    MMDShoulderAxisDir, MMDShoulderName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
+    GOHShoulderAxisDir, GOHShoulderAxisName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
+    MMDShoulderAxisDir, MMDShoulderAxisName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
     
-    if MMDShoulderName != GOHShoulderName:
+    if MMDShoulderAxisName != GOHShoulderAxisName:
         ApplyRotationOnWorldAxis(MMD_Root, 90, MMDHeadAxisName)
-        GOHShoulderAxisDir, GOHShoulderName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
-        MMDShoulderAxisDir, MMDShoulderName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
+        GOHShoulderAxisDir, GOHShoulderAxisName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
+        MMDShoulderAxisDir, MMDShoulderAxisName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
     
     if MMDShoulderAxisDir != GOHShoulderAxisDir:
         ApplyRotationOnWorldAxis(MMD_Root, 180, MMDHeadAxisName)
@@ -566,23 +567,6 @@ if __name__ == "__main__":
     GOH_UpperBodySourceList = ["GFA_MWT_SKE_foot1L", "GFA_MWT_SKE_foot1R"]
     GOH_UpperBodyTargetList = ["GFA_MWT_SKE_Clavicle_left", "GFA_MWT_SKE_Clavicle_right"]
 
-    ### Distribute Upper body rotation
-    UB2BodyDirectionDiff = GetMeanPosDirectionDifferenceOnPlaneProjection(
-        SourceNodeListStart = MMD_UpperBodyChain[2],
-        SourceNodeListEnd = MMD_UpperBodyChain[3],
-        TargetNodeListStart = MMD_UpperBodyChain[0],
-        TargetNodeListEnd = MMD_UpperBodyChain[2],
-        ProjectionPlane = UpperBodyAlignmentPlane
-    )
-    
-    UB2BodyDirectionDiff *= 0.5
-    ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperBodyChain[2][0]), UB2BodyDirectionDiff, BodyAlignmentPlane)
-    ApplyRotationOnPlane(MMD_Root, (-UB2BodyDirectionDiff) / 2, BodyAlignmentPlane)
-    for NodeName in MMD_UpperBodyChain[-1] + [MMD_NeckBoneName]:
-        ApplyRotationOnPlane(GetNodeByNameRaiser(NodeName), (-UB2BodyDirectionDiff) / 2, BodyAlignmentPlane)
-    for NodeName in [MMD_UpperLegLeft[0], MMD_UpperLegRight[0], MMD_UpperLegDLeft[0], MMD_UpperLegDRight[0]]:
-        ApplyRotationOnPlane(GetNodeByNameRaiser(NodeName), (UB2BodyDirectionDiff) / 2, BodyAlignmentPlane)
-    
     ### Get Upper body scaling
     GOH_UpperBodyHeight = GetMeanPosFromNodeNameList(GOH_Shoulder_LR).z - GetMeanPosFromNodeNameList(GOH_UpperBodySourceList).z
     MMD_UpperBodyHeight = GetMeanPosFromNodeNameList(MMD_Shoulder_LR).z - GetMeanPosFromNodeNameList(MMD_UpperBodyChain[0]).z
@@ -592,14 +576,7 @@ if __name__ == "__main__":
     MMD_ShoulderVector = GetNodeByNameRaiser(MMD_ShoulderLeftName).pos - GetNodeByNameRaiser(MMD_ShoulderRightName).pos
     UpperBodyWidthScale = GetVectorLength(GOH_ShoulderVector) / GetVectorLength(MMD_ShoulderVector)
 
-    WidthExtraScaling = UpperBodyWidthScale / UpperBodyHeightScale
-    WidthExtraScaling_PerStep = WidthExtraScaling ** (1/2.5)
-
-    rt.scale(MMD_Root, rt.Point3(UpperBodyHeightScale, UpperBodyHeightScale, UpperBodyHeightScale))
-    
-    rt.scale(MMD_Root, rt.Point3(WidthExtraScaling_PerStep, WidthExtraScaling_PerStep, WidthExtraScaling_PerStep))
-    rt.scale(GetNodeByNameRaiser(MMD_UpperBodyChain[1][0]), rt.Point3(1, WidthExtraScaling_PerStep ** 0.5, 1))
-    rt.scale(GetNodeByNameRaiser(MMD_UpperBodyChain[2][0]), rt.Point3(1, WidthExtraScaling_PerStep ** 0.5, 1))
+    rt.scale(MMD_Root, rt.Point3(((UpperBodyWidthScale * UpperBodyHeightScale) ** 0.5), UpperBodyWidthScale, UpperBodyHeightScale))
 
     #### Shoulder Alignment
     #### Overall Position Alignment
@@ -607,7 +584,15 @@ if __name__ == "__main__":
     MMD_FullBodyAlignmentPos = GetMeanPosFromNodeNameList([MMD_UpperLegLeft[0], MMD_UpperLegRight[0]])
     MMD_Root.pos = MMD_Root.pos + (GOH_FullBodyAlignmentPos - MMD_FullBodyAlignmentPos)
 
-    ##### Alignment Y
+    ##### Alignment Shoulder By steps
+    ShoulderOffset = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List) - GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List)
+    ###### Upperbody
+    GetNodeByNameRaiser("UpperBody2").pos = GetNodeByNameRaiser("UpperBody2").pos + (ShoulderOffset / 2.0)
+    ###### Shoulder_P
+    GetNodeByNameRaiser("ShoulderP_L").pos = GetNodeByNameRaiser("ShoulderP_L").pos + (ShoulderOffset / 2.0)
+    GetNodeByNameRaiser("ShoulderP_R").pos = GetNodeByNameRaiser("ShoulderP_R").pos + (ShoulderOffset / 2.0)
+    
+
     LeftShoulderOffset = GetNodeByNameRaiser(GOH_ShoulderLeftName).pos.y - GetNodeByNameRaiser(MMD_ShoulderLeftName).pos.y
     GetNodeByNameRaiser("ShoulderP_L").pos = GetNodeByNameRaiser("ShoulderP_L").pos + rt.Point3(0.0, LeftShoulderOffset/2.0, 0.0)
     GetNodeByNameRaiser(MMD_ShoulderLeftName).pos = GetNodeByNameRaiser(MMD_ShoulderLeftName).pos + rt.Point3(0.0, LeftShoulderOffset/2.0, 0.0)
@@ -616,39 +601,9 @@ if __name__ == "__main__":
     GetNodeByNameRaiser("ShoulderP_R").pos = GetNodeByNameRaiser("ShoulderP_R").pos + rt.Point3(0.0, RightShoulderOffset/2.0, 0.0)
     GetNodeByNameRaiser(MMD_ShoulderRightName).pos = GetNodeByNameRaiser(MMD_ShoulderRightName).pos + rt.Point3(0.0, RightShoulderOffset/2.0, 0.0)
     
-    ##### Alignment Z
-    MMD_GOH_BasePosZ = GetMeanPosFromNodeNameList(MMD_UpperBodyChain[0]).z
-    UpperBody_ZAlignmentRatio = (GetMeanPosFromNodeNameList(GOH_Shoulder_LR).z - MMD_GOH_BasePosZ) / (GetMeanPosFromNodeNameList(MMD_Shoulder_LR).z - MMD_GOH_BasePosZ)
-    AligningBoneLists = MMD_UpperBodyChain[1:] + [["ShoulderC_L", "ShoulderC_R"], MMD_Shoulder_LR, ]
-    AligningBoneNames = list()
-    CurrentPosList = list()
-    for BoneList in AligningBoneLists:
-        for BoneName in BoneList:
-            AligningBoneNames.append(BoneName)
-            CurrentPosList.append(GetNodeByNameRaiser(BoneName).pos)
-    
-    for BoneName, CurrentPos in zip(AligningBoneNames, CurrentPosList):
-        NewPosZ = ((CurrentPos.z - MMD_GOH_BasePosZ) * (UpperBody_ZAlignmentRatio)) + MMD_GOH_BasePosZ
-        GetNodeByNameRaiser(BoneName).pos = rt.Point3(CurrentPos.x, CurrentPos.y, NewPosZ)
-
-    ##### Alignment X
-    X_AlignmentRatio = 0.75
-    MMD_ShoulderWithNeck_PosX = GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName]).x
-    GOH_ShoulderWithNeck_PosX = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName]).x
-    PosX_Diff = GOH_ShoulderWithNeck_PosX - MMD_ShoulderWithNeck_PosX
-    MMD_Root.pos = rt.Point3(MMD_Root.pos.x + (PosX_Diff * X_AlignmentRatio), MMD_Root.pos.y, MMD_Root.pos.z)
-
-    ##### Finished Upper Body Alignment
-    for CurrentBone in [MMD_ShoulderLeftName, MMD_ShoulderRightName, MMD_NeckBoneName, MMD_UpperLegLeft[0], MMD_UpperLegRight[0], MMD_UpperLegDLeft[0], MMD_UpperLegDRight[0]]:
-        NormalizeScaleBreakLink(CurrentBone)
     ##### Shoulder Final Alignment
-    MMD_ShoulderLeftObj = GetNodeByNameRaiser(MMD_ShoulderLeftName)
-    GOH_ShoulderLeftObj = GetNodeByNameRaiser(GOH_ShoulderLeftName)
-    MMD_ShoulderLeftObj.pos = rt.Point3(MMD_ShoulderLeftObj.pos.x, GOH_ShoulderLeftObj.pos.y, GOH_ShoulderLeftObj.pos.z,)
-    MMD_ShoulderRightObj = GetNodeByNameRaiser(MMD_ShoulderRightName)
-    GOH_ShoulderRightObj = GetNodeByNameRaiser(GOH_ShoulderRightName)
-    MMD_ShoulderRightObj.pos = rt.Point3(MMD_ShoulderRightObj.pos.x, GOH_ShoulderRightObj.pos.y, GOH_ShoulderRightObj.pos.z,)
-
+    GetNodeByNameRaiser(MMD_ShoulderLeftName).pos = GetNodeByNameRaiser(GOH_ShoulderLeftName).pos
+    GetNodeByNameRaiser(MMD_ShoulderRightName).pos = GetNodeByNameRaiser(GOH_ShoulderRightName).pos
 
     ### Lower body alignment
     #### UpperLeg: Scaling Y -> Rotation YZ -> Rotation XZ
@@ -667,7 +622,6 @@ if __name__ == "__main__":
         rt.scale(GetNodeByNameRaiser(CurrentBoneName), rt.Point3(LowerLegScaling**(1/4), LowerLegScaling**(1/4), LowerLegScaling))
 
     ## UpperLeg Re-Rotation To Match Foot Pos
-
     GOH_LegFinalLeft = ("Leg_L", "GFA_MWT_SKE_foot3L")
     GOH_LegFinalRight = ("Leg_R", "GFA_MWT_SKE_foot3R")
 
@@ -747,18 +701,9 @@ if __name__ == "__main__":
 
     # Arm Further Fixing
     if MMD_Source_Config == "GF2":
-        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 3.0, "XY")
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 2.0, "XY")
         ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 1.25, "YZ")
         ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -1.25, "YZ")
-
-    # # # Head Further Fixing
-    # if MMD_Source_Config == "GF2":
-    #     # 0.875
-    #     rt.scale(GetNodeByNameRaiser(MMD_NeckBoneName), rt.Point3(0.925, 0.925, 0.925))
-    #     HeadBonePos = GetNodeByNameRaiser(MMD_HeadBoneName).pos
-    #     NeckBonePos = GetNodeByNameRaiser(MMD_NeckBoneName).pos
-    #     GetNodeByNameRaiser(MMD_HeadBoneName).pos = NeckBonePos + ((HeadBonePos - NeckBonePos) * 0.85)
-
     
     ### Normalize Hand scale
     NormalizeScaleBreakLinkEvenScale(["Wrist_L", "Wrist_R"])
@@ -796,7 +741,6 @@ if __name__ == "__main__":
         AutoRotateFinger([MMD_Thumb_L1[0], MMD_Thumb_L2[0], MMD_Thumb_L2[1],], LeftThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
         AutoRotateFinger([MMD_Thumb_R1[0], MMD_Thumb_R2[0], MMD_Thumb_R2[1],], RightThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
 
-    GOH_FingerRotation = 40 # ?
     ### Align and rotate other fingers.
     AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "XY")
     AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "YZ")
@@ -835,64 +779,23 @@ if __name__ == "__main__":
     LeftHandPointingAxis = ["+", "Y"]
     RightHandPointingAxis = ["-", "Y"]
     RotatingTargetAxis = ["-", "Z"]
+    GOH_FingerRotation = 25 # ?
+
     AutoRotateFinger([MMD_IndexFinger_L1[0], MMD_IndexFinger_L2[0], MMD_IndexFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
+    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
 
     AutoRotateFinger([MMD_IndexFinger_R1[0], MMD_IndexFinger_R2[0], MMD_IndexFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-
-    MMD_IndexFinger_LA = ("IndexFinger1_L", "IndexFinger3_L")
-    MMD_MiddleFinger_LA = ("MiddleFinger1_L", "MiddleFinger3_L")
-    MMD_LittleFinger_LA = ("LittleFinger1_L", "LittleFinger3_L")
-    MMD_RingFinger_LA = ("RingFinger1_L", "RingFinger3_L")
-
-    MMD_IndexFinger_RA = ("IndexFinger1_R", "IndexFinger3_R")
-    MMD_MiddleFinger_RA = ("MiddleFinger1_R", "MiddleFinger3_R")
-    MMD_LittleFinger_RA = ("LittleFinger1_R", "LittleFinger3_R")
-    MMD_RingFinger_RA = ("RingFinger1_R", "RingFinger3_R")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_LA, MMD_MiddleFinger_LA, "XY")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_LA, MMD_MiddleFinger_LA, "XY")
-    AlignBoneRotationOnPlane(MMD_RingFinger_LA, MMD_MiddleFinger_LA, "XY")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_RA, MMD_MiddleFinger_RA, "XY")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_RA, MMD_MiddleFinger_RA, "XY")
-    AlignBoneRotationOnPlane(MMD_RingFinger_RA, MMD_MiddleFinger_RA, "XY")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_MiddleFinger_L1, "XZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_MiddleFinger_L1, "XZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_MiddleFinger_L1, "XZ")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_MiddleFinger_R1, "XZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_MiddleFinger_R1, "XZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_MiddleFinger_R1, "XZ")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_MiddleFinger_L1, "YZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_MiddleFinger_L1, "YZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_MiddleFinger_L1, "YZ")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_MiddleFinger_R1, "YZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_MiddleFinger_R1, "YZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_MiddleFinger_R1, "YZ")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "XY")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "XY")
-    AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "XY")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "XY")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "XY")
-    AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "XY")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "XZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "XZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "XZ")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "XZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "XZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "XZ")
-
-    AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_MiddleFinger_L2, "YZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_MiddleFinger_L2, "YZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_MiddleFinger_L2, "YZ")
-    AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_MiddleFinger_R2, "YZ")
-    AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_MiddleFinger_R2, "YZ")
-    AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_MiddleFinger_R2, "YZ")
+    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
+    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -35, "XY")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), 35, "XY") 
+	
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), 10, "YZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -10, "YZ")
+	
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -15, "XZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -15, "XZ")
