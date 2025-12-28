@@ -61,45 +61,45 @@ bone_merging_list = [
     [["Eye_R"], [("GFA_MWT_SKE_Head", 1.0)]],
 
 
-    [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 0.85), ("GFA_MWT_SKE_Palm1L", 0.15)]], # Is this correct???
-    [["Thumb0_L"], [("GFA_MWT_SKE_Palm1L", 0.95), ("GFA_MWT_SKE_Palm1L", 0.05)]],
-    [["Thumb1_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
-    [["Thumb2_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
+    [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]], # Is this correct???
+    [["Thumb0_L"], [("GFA_MWT_SKE_Palm1L", 0.975), ("GFA_MWT_SKE_Palm1L", 0.025)]],
+    [["Thumb1_L"], [("GFA_MWT_SKE_Palm1L", 0.95), ("GFA_MWT_SKE_Palm1L", 0.05)]],
+    [["Thumb2_L"], [("GFA_MWT_SKE_Palm1L", 0.9), ("GFA_MWT_SKE_Palm2L", 0.1)]],
 
-    [["IndexFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-    [["LittleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-    [["MiddleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-    [["RingFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
+    [["IndexFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+    [["MiddleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+    [["RingFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+    [["LittleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
 
-    [["IndexFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-    [["LittleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-    [["MiddleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-    [["RingFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
+    [["IndexFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+    [["MiddleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+    [["RingFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+    [["LittleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
 
-    [["IndexFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-    [["LittleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-    [["MiddleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-    [["RingFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
+    [["IndexFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.36), ("GFA_MWT_SKE_Palm3L", 0.14)]],
+    [["MiddleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.37), ("GFA_MWT_SKE_Palm3L", 0.13)]],
+    [["RingFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.38), ("GFA_MWT_SKE_Palm3L", 0.12)]],
+    [["LittleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.39), ("GFA_MWT_SKE_Palm3L", 0.11)]],
 
-    [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 0.85), ("GFA_MWT_SKE_Palm1R", 0.15)]], # Is this correct???
-    [["Thumb0_R"], [("GFA_MWT_SKE_Palm1R", 0.95), ("GFA_MWT_SKE_Palm1R", 0.05)]],
-    [["Thumb1_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
-    [["Thumb2_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
+    [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]], # Is this correct???
+    [["Thumb0_R"], [("GFA_MWT_SKE_Palm1R", 0.975), ("GFA_MWT_SKE_Palm1R", 0.025)]],
+    [["Thumb1_R"], [("GFA_MWT_SKE_Palm1R", 0.95), ("GFA_MWT_SKE_Palm1R", 0.05)]],
+    [["Thumb2_R"], [("GFA_MWT_SKE_Palm1R", 0.9), ("GFA_MWT_SKE_Palm2R", 0.1)]],
 
-    [["IndexFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-    [["LittleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-    [["MiddleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-    [["RingFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
+    [["IndexFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+    [["MiddleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+    [["RingFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+    [["LittleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
 
-    [["IndexFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-    [["LittleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-    [["MiddleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-    [["RingFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
+    [["IndexFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+    [["MiddleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+    [["RingFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+    [["LittleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
     
-    [["IndexFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-    [["LittleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-    [["MiddleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-    [["RingFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
+    [["IndexFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.36), ("GFA_MWT_SKE_Palm3R", 0.14)]],
+    [["MiddleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.37), ("GFA_MWT_SKE_Palm3R", 0.13)]],
+    [["RingFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.38), ("GFA_MWT_SKE_Palm3R", 0.12)]],
+    [["LittleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.39), ("GFA_MWT_SKE_Palm3R", 0.11)]],
     
 ]
 
