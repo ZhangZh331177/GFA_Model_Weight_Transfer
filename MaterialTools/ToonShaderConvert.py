@@ -202,8 +202,8 @@ def ConvertMTL(InputPath, OutputPath):
             OutFile.write(InputMTLObj.ToMTLString())
 
 
-inputDir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\MaterialTools\entity"
-outputDir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\MaterialTools\entity_patch"
+inputDir = r"G:\SteamLibrary\steamapps\common\Call to Arms - Gates of Hell\TEST"
+outputDir = r"G:\SteamLibrary\steamapps\common\Call to Arms - Gates of Hell\TEST_Path"
 
 for root, dirs, files in os.walk(inputDir):
     for file in files:

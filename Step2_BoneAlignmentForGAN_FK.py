@@ -675,7 +675,7 @@ if __name__ == "__main__":
     GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Hand_rot1L")
     GOH_LowerArmLeft_LengthOnly =  ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
     GOH_LowerArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Hand_rot1R")
-    GOH_LowerArmRight_LengthOnly = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm3R") # The Original model Is ***King not symmetrical!!!!!!
+    GOH_LowerArmRight_LengthOnly = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm4R_hide") # The Original model Is ***King not symmetrical!!!!!!
     
     MMD_LowerArmLeft = ("Elbow_L", "Wrist_L")
     MMD_LowerArmLeft_LengthOnly =  ("Elbow_L", "MiddleFinger2_L")
@@ -703,11 +703,9 @@ if __name__ == "__main__":
     AlignBoneRotationOnPlane([MMD_UpperArmRight[0], MMD_LowerArmRight[1]], [MMD_UpperArmRight[0], GOH_LowerArmRight[1]], "XY")
     AlignBoneRotationOnPlane([MMD_UpperArmRight[0], MMD_LowerArmRight[1]], [MMD_UpperArmRight[0], GOH_LowerArmRight[1]], "YZ")
 
-    # Arm Further Fixing
-    if MMD_Source_Config == "GF2":
-        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 2.0, "XY")
-        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 1.25, "YZ")
-        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -1.25, "YZ")
+    # # Arm Further Fixing
+    ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 2.0, "YZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -2.0, "YZ")
     
     ### Normalize Hand scale
     NormalizeScaleBreakLinkEvenScale(["Wrist_L", "Wrist_R"])
@@ -786,20 +784,20 @@ if __name__ == "__main__":
     GOH_FingerRotation = 25 # ?
 
     AutoRotateFinger([MMD_IndexFinger_L1[0], MMD_IndexFinger_L2[0], MMD_IndexFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
-    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
-    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.375)
 
     AutoRotateFinger([MMD_IndexFinger_R1[0], MMD_IndexFinger_R2[0], MMD_IndexFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
-    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
-    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
-    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.375)
     
     ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -35, "XY")
     ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), 35, "XY") 
 	
-    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), 10, "YZ")
-    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -10, "YZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), 5, "YZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -5, "YZ")
 	
     ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -15, "XZ")
     ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -15, "XZ")

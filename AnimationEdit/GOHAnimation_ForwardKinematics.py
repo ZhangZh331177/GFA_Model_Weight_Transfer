@@ -3,7 +3,7 @@ from scipy.spatial.transform import Rotation, RotationSpline
 from scipy.interpolate import make_interp_spline
 import numpy as np
 import struct
-from SL_IK_Lib import GetRotatedVector, GetVectorRotationQuat
+from SL_IK_Lib import Find_YZ_Rotation
 from SL_GOH_SKE_Lib import IsParentInGOHModificationSke, GetDirectChidsOfListInConstructionSke, GOHParentDictForConstruction
 from multiprocessing import Pool
 
@@ -42,6 +42,23 @@ class GOHAnim:
     B_VISIBLE_ON = 0x08    # Bit 3: Bone is visible
     B_VISIBLE_OFF = 0x10   # Bit 4: Bone is hidden
     B_MESH = 0x20          # Bit 5: Mesh data present (not supported)
+    
+    def GetLocalRot(self, BoneName):
+        BoneNameUpper = BoneName.upper()
+        
+        if (BoneNameUpper not in self.BoneNamesUpper):
+            raise ValueError(f"Target bone {BoneName} not found in current animation!")
+        BoneID = self.BoneNamesUpper.index(BoneNameUpper)
+        GlobalRotation = Rotation.from_quat(self.Rot[BoneID])
+
+        if GOHParentDictForConstruction[BoneName.upper()] not in self.BoneNamesUpper:
+            # Root Bone
+            return GlobalRotation
+        else:
+            ParentBoneID = self.BoneNamesUpper.index(GOHParentDictForConstruction[BoneNameUpper])
+            ParentRotation = Rotation.from_quat(self.Rot[ParentBoneID])
+            LocalRotation = ParentRotation.inv() * GlobalRotation
+            return LocalRotation
 
     def GetLocalPos(self, BoneName):
         BoneNameUpper = BoneName.upper()
@@ -56,22 +73,40 @@ class GOHAnim:
         UnRotatedRelatedPos = ParentRotation.inv().apply(RelatedPos)
         return UnRotatedRelatedPos
 
+    def GetLocalPosByID(self, BoneID):
+        return self.GetLocalPos(self.BoneNamesUpper[BoneID])
+    
     def ApplyLocalPos(self, BoneName, NewLocalPos):
         BoneNameUpper = BoneName.upper()
         
         if (BoneNameUpper not in self.BoneNamesUpper):
             raise ValueError(f"Target bone {BoneName} not found in current animation!")
         BoneID = self.BoneNamesUpper.index(BoneNameUpper)
-        ParentBoneID = self.BoneNamesUpper.index(GOHParentDictForConstruction[BoneNameUpper])
 
-        ParentRotation = Rotation.from_quat(self.Rot[ParentBoneID])
-        RelatedPos = ParentRotation.apply(NewLocalPos)
-        PosOffset = (self.Pos[ParentBoneID] + RelatedPos) - self.Pos[BoneID]
-        
-        AffectingNodeID = self.GetSelfAndAllChildID(BoneNameUpper)
-        self.Pos[AffectingNodeID] += PosOffset
+        if GOHParentDictForConstruction[BoneName.upper()] not in self.BoneNamesUpper:
+            # Root Bone
+            PosOffset = NewLocalPos - self.Pos[BoneID]
+            AffectingNodeID = self.GetSelfAndAllChildID(BoneNameUpper)
+            self.Pos[AffectingNodeID] += PosOffset
+        else:
+            ## Local Pos by parent
+            ParentBoneID = self.BoneNamesUpper.index(GOHParentDictForConstruction[BoneNameUpper])
 
+            ParentRotation = Rotation.from_quat(self.Rot[ParentBoneID])
+            RelatedPos = ParentRotation.apply(NewLocalPos)
+            PosOffset = (self.Pos[ParentBoneID] + RelatedPos) - self.Pos[BoneID]
+            
+            AffectingNodeID = self.GetSelfAndAllChildID(BoneNameUpper)
+            self.Pos[AffectingNodeID] += PosOffset
+
+    def ApplyLocalPosByID(self, BoneID, NewLocalPos):
+        return self.ApplyLocalPos(self.BoneNamesUpper[BoneID], NewLocalPos)
     
+    def ApplyLocalPosIfExist(self, BoneName, NewLocalPos):
+        if BoneName.upper() not in self.BoneNamesUpper:
+            return
+        self.ApplyLocalPos(BoneName, NewLocalPos)
+
     def IsBoneExist(self, BoneName):
         BoneNameUpper = BoneName.upper()
         return BoneNameUpper in self.BoneNamesUpper
@@ -114,51 +149,40 @@ class GOHAnim:
         NodeID = self.BoneNamesUpper.index(NodeNameUpper)
         return self.Pos[NodeID].copy()
 
-    def ApplyRotation(self, NodeName, frameID, RotationQuat):
+    def SetElbowRotation(self, NodeName, AngelArr, ElbowPositive):
         NodeNameUpper = NodeName.upper()
         if NodeNameUpper not in self.BoneNamesUpper:
             raise ValueError(f"Target bone {NodeName} not found in current animation!")
         SelfID = self.BoneNamesUpper.index(NodeNameUpper)
-        AffectingNodeID = self.GetSelfAndAllChildID(NodeName)
-        # Apply Rotation
-        InputRotation = Rotation.from_quat(RotationQuat)
-        AffectedNodeRotation = self.Rot[AffectingNodeID, frameID, :]
-        NewRotation = (Rotation.from_quat(AffectedNodeRotation) * InputRotation)
-        self.Rot[AffectingNodeID, frameID, :] = NewRotation.as_quat(canonical=True)
-        # Apply Position
-        AffectedNodePosition = self.Pos[AffectingNodeID, frameID, :]
-        SelfNodePosition = self.Pos[SelfID, frameID, :]
-        RelatedPosition = AffectedNodePosition - SelfNodePosition
-        NewRelatedPosition = InputRotation.apply(RelatedPosition)
-        self.Pos[AffectingNodeID, frameID, :] = SelfNodePosition + NewRelatedPosition
-
-    def ApplyRotationOnList(self, NodeNameList, frameID, RotationQuat):
-        NodeNameListUpper = [NodeName.upper() for NodeName in NodeNameList]
-        for NodeNameUpper in NodeNameListUpper:
-            if NodeNameUpper in self.BoneNamesUpper:
-                RotationRootBoneID = self.BoneNamesUpper.index(NodeNameUpper)
-                break
+        # Get Rotation
+        if ElbowPositive:
+            EulerRotation = np.array([(0,0, 180 - Angel) for Angel in AngelArr]) # Fully extended to 180 degrees = 0
         else:
-            raise ValueError(f"None of target bones {NodeNameList} found in current animation!")
+            EulerRotation = np.array([(0,0, -(180 - Angel)) for Angel in AngelArr]) # Fully extended to 180 degrees = 0, neg values
+        NewLocalRotation = Rotation.from_euler("XYZ", EulerRotation, degrees=True)
+        if GOHParentDictForConstruction[NodeNameUpper] not in self.BoneNamesUpper:
+            NewGlobalRotation = NewLocalRotation
+        else:
+            ParentID = self.BoneNamesUpper.index(GOHParentDictForConstruction[NodeNameUpper])
+            ParentRotation = Rotation.from_quat(self.Rot[ParentID, :])
+            NewGlobalRotation = ParentRotation * NewLocalRotation
         
-        AffectingNodeID = set()
-        for NodeNameUpper in NodeNameListUpper:
-            AffectingNodeID.update(self.GetSelfAndAllChildIDNOExistanceAssumption(NodeNameUpper))
-        AffectingNodeID = list(AffectingNodeID)
+        CurrentGlobalRotation = Rotation.from_quat(self.Rot[SelfID, :])
+        ApplyingRotation = NewGlobalRotation * CurrentGlobalRotation.inv()
 
-        # Apply Rotation
-        InputRotation = Rotation.from_quat(RotationQuat)
-        AffectedNodeRotation = self.Rot[AffectingNodeID, frameID, :]
-        NewRotation = (Rotation.from_quat(AffectedNodeRotation) * InputRotation)
-        self.Rot[AffectingNodeID, frameID, :] = NewRotation.as_quat(canonical=True)
-        # Apply Position
-        AffectedNodePosition = self.Pos[AffectingNodeID, frameID, :]
-        SelfNodePosition = self.Pos[RotationRootBoneID, frameID, :]
-        RelatedPosition = AffectedNodePosition - SelfNodePosition
-        NewRelatedPosition = InputRotation.apply(RelatedPosition)
-        self.Pos[AffectingNodeID, frameID, :] = SelfNodePosition + NewRelatedPosition
+        # Apply
+        AffectingNodeIDList = self.GetSelfAndAllChildID(NodeName)
+        # Apply rotation to childs
+        for AffectingNodeID in AffectingNodeIDList:
+            NodeGlobalRotation = Rotation.from_quat(self.Rot[AffectingNodeID, :])
+            NodeNewGlobalRotation = ApplyingRotation * NodeGlobalRotation
+            self.Rot[AffectingNodeID, :] = NodeNewGlobalRotation.as_quat(canonical=True)
+            
+            NodeLocalTransform = self.Pos[AffectingNodeID, :] - self.Pos[SelfID, :]
+            NodeNewLocalTransform = ApplyingRotation.apply(NodeLocalTransform)
+            self.Pos[AffectingNodeID, :] = self.Pos[SelfID, :] + NodeNewLocalTransform
 
-    def IKToPosition(self, ShoulderBoneName:str, ElbowBoneName:str, HandBoneName:str, ExpectedPositon, HandBoneApplyNameList = None, KeepRotationAfterHand = True):
+    def IKToPosition(self, ShoulderBoneName:str, ElbowBoneName:str, HandBoneName:str, ExpectedPositon, ElbowPositive, HandBoneApplyNameList = None, KeepRotationAfterHand = True):
         ShoulderBoneNameUpper = ShoulderBoneName.upper()
         ElbowBoneNameUpper = ElbowBoneName.upper()
         HandBoneNameUpper = HandBoneName.upper()
@@ -180,40 +204,72 @@ class GOHAnim:
             HandOriginalRotation = Rotation.from_quat(self.Rot[HandNodeID].copy())
 
         # Perform IK
-        for frameID in range(self.Pos.shape[1]):
-            # Step1: Rotate Elbow
-            ## Get Position
-            ShoulderPos = self.Pos[ShoulderNodeID,frameID, :]
-            ElbowPos = self.Pos[ElbowNodeID,frameID, :]
-            HandPos = self.Pos[HandNodeID,frameID, :]
-            ExpectedHandPos = ExpectedPositon[frameID]
+        ShoulderPos = self.Pos[ShoulderNodeID, :]
+        ElbowPos = self.Pos[ElbowNodeID, :]
+        HandPos = self.Pos[HandNodeID, :]
 
-            UpperArmVector = ElbowPos - ShoulderPos
-            LowerArmVector = HandPos - ElbowPos
-            ExpectedHandDistance = float(np.linalg.norm(ExpectedHandPos - ShoulderPos))
-            RotatedLowerArmVector = GetRotatedVector(UpperArmVector, LowerArmVector, ExpectedHandDistance)
-            ElbowAddingRotation = GetVectorRotationQuat(LowerArmVector, RotatedLowerArmVector)
-            self.ApplyRotation(ElbowBoneNameUpper, frameID, ElbowAddingRotation)
+        # Elbow IK
+        UpperArmLength = np.linalg.norm(ShoulderPos - ElbowPos, axis=-1)
+        LowerArmLength = np.linalg.norm(ElbowPos - HandPos, axis=-1)
+        TargetLength = np.linalg.norm(ShoulderPos - ExpectedPositon, axis=-1)
+
+        # Law of cosines: cos(C) = (a² + b² - c²) / (2ab)
+        AngelConsine = np.clip((UpperArmLength**2 + LowerArmLength**2 - TargetLength**2) / (2 * UpperArmLength * LowerArmLength), -1, 1)
+        IK_Elbow_Angel = np.degrees(np.arccos(AngelConsine))
+        IK_Elbow_Angel[np.where(TargetLength > (UpperArmLength + LowerArmLength))] = 180.0
+        self.SetElbowRotation(ElbowBoneName, IK_Elbow_Angel, ElbowPositive)
+
+        # Shoulder IK
+        ShoulderLocalRotation = self.GetLocalRot(ShoulderBoneNameUpper)
+        FullArmGlobalVector = self.Pos[HandNodeID, :] - self.Pos[ShoulderNodeID, :]
+        FullArmTargetGlobalVector = ExpectedPositon - self.Pos[ShoulderNodeID, :]
+        if GOHParentDictForConstruction[ShoulderBoneNameUpper] not in self.BoneNamesUpper:
+            # Shoulder is Root Bone
+            ShoulderNewGlobalRotation = Find_YZ_Rotation(ShoulderLocalRotation, FullArmGlobalVector, FullArmTargetGlobalVector)
+        else:
+            ParentID = self.BoneNamesUpper.index(GOHParentDictForConstruction[ShoulderBoneNameUpper])
+            ParentRotation = Rotation.from_quat(self.Rot[ParentID])
+            FullArmLocalVector = ParentRotation.inv().apply(FullArmGlobalVector)
+            FullArmTargetLocalVector = ParentRotation.inv().apply(FullArmTargetGlobalVector)
+            ShoulderNewLocalRotation = Find_YZ_Rotation(ShoulderLocalRotation, FullArmLocalVector, FullArmTargetLocalVector)
+            ShoulderNewGlobalRotation = ParentRotation * ShoulderNewLocalRotation
+
+        ApplyingRotation = ShoulderNewGlobalRotation * Rotation.from_quat(self.Rot[ShoulderNodeID]).inv()
+
+        # Apply
+        AffectingNodeIDList = self.GetSelfAndAllChildID(ShoulderBoneName)
+
+        # Apply rotation to childs
+        for AffectingNodeID in AffectingNodeIDList:
+            NodeGlobalRotation = Rotation.from_quat(self.Rot[AffectingNodeID, :])
+            NodeNewGlobalRotation = ApplyingRotation * NodeGlobalRotation
+            self.Rot[AffectingNodeID, :] = NodeNewGlobalRotation.as_quat(canonical=True)
             
-            # Step2: Rotate Shoulder
-            ## Refresh Position
-            ShoulderPos = self.Pos[ShoulderNodeID,frameID, :]
-            ElbowPos = self.Pos[ElbowNodeID,frameID, :]
-            HandPos = self.Pos[HandNodeID,frameID, :]
-            ExpectedHandPos = ExpectedPositon[frameID]
-
-            FullArmVector = HandPos - ShoulderPos
-            FullArmExpectedVector = ExpectedHandPos - ShoulderPos
-            ShoulderAddingRotation = GetVectorRotationQuat(FullArmVector, FullArmExpectedVector)
-            self.ApplyRotation(ShoulderBoneNameUpper, frameID, ShoulderAddingRotation)
+            NodeLocalTransform = self.Pos[AffectingNodeID, :] - self.Pos[ShoulderNodeID, :]
+            NodeNewLocalTransform = ApplyingRotation.apply(NodeLocalTransform)
+            self.Pos[AffectingNodeID, :] = self.Pos[ShoulderNodeID, :] + NodeNewLocalTransform
 
         # Restore Hand Rotation
         if KeepRotationAfterHand:
             HandCurrentRotation = Rotation.from_quat(self.Rot[HandNodeID].copy())
-            RelativeRotation = (HandOriginalRotation * HandCurrentRotation.inv()).as_quat(canonical=True)
-            for frameID in range(self.Pos.shape[1]):
-                self.ApplyRotationOnList(HandBoneApplyNameList, frameID, RelativeRotation[frameID])
+            ApplyingRotation = HandOriginalRotation * HandCurrentRotation.inv()
+            
+            # Apply
+            AffectingNodeIDSet = set()
+            for ApplyName in HandBoneApplyNameList:
+                AffectingNodeIDSet.update(self.GetSelfAndAllChildIDNOExistanceAssumption(ApplyName))
+            AffectingNodeIDList = list(AffectingNodeIDSet)
 
+            # Apply rotation to childs
+            for AffectingNodeID in AffectingNodeIDList:
+                NodeGlobalRotation = Rotation.from_quat(self.Rot[AffectingNodeID, :])
+                NodeNewGlobalRotation = ApplyingRotation * NodeGlobalRotation
+                self.Rot[AffectingNodeID, :] = NodeNewGlobalRotation.as_quat(canonical=True)
+                
+                NodeLocalTransform = self.Pos[AffectingNodeID, :] - self.Pos[HandNodeID, :]
+                NodeNewLocalTransform = ApplyingRotation.apply(NodeLocalTransform)
+                self.Pos[AffectingNodeID, :] = self.Pos[HandNodeID, :] + NodeNewLocalTransform
+                
     def Interpolate(self, method:str = "BSpline"):
         if method == "BSpline":
             if self.Pos.shape[1] <= 1:
@@ -453,55 +509,6 @@ class GOHAnim:
                         LeftHandedRot = RightHandQuaternionXYZWToLeftQuaternionXYZ(*LocalRot[BoneID, frame_id, :])
                         filePtr.write(struct.pack('<3f', *LeftHandedRot))
 
-            # for frame_id in range(self.FrameCount):
-            #     # Collect bones with keyframe data in this frame
-            #     keyframe_chunks = []
-                
-            #     for bone_id in range(self.BoneCount):
-            #         chunk_flags = 0
-            #         has_pos = False
-            #         has_rot = False
-                    
-            #         # Check position (NaN means no keyframe)
-            #         if not np.isnan(LocalPos[bone_id, frame_id, 0]):
-            #             chunk_flags |= GOHAnim.B_POSITION
-            #             has_pos = True
-                    
-            #         # Check rotation (NaN means no keyframe)
-            #         if not np.isnan(LocalRot[bone_id, frame_id, 0]):
-            #             chunk_flags |= GOHAnim.B_ORIENTATION
-            #             has_rot = True
-                    
-            #         # Check visibility (-1 means no keyframe)
-            #         vis_value = self.Vis[bone_id, frame_id]
-            #         if vis_value == 1:
-            #             chunk_flags |= GOHAnim.B_VISIBLE_ON
-            #         elif vis_value == 0:
-            #             chunk_flags |= GOHAnim.B_VISIBLE_OFF
-                    
-            #         # Only add chunk if there's any data
-            #         if chunk_flags != 0:
-            #             chunk_flags |= GOHAnim.B_LEFT_HANDED
-            #             keyframe_chunks.append((bone_id, chunk_flags, has_pos, has_rot))
-                
-            #     # Only write FRM2 block if there are keyframe chunks for this frame
-            #     if keyframe_chunks:
-            #         filePtr.write(b'FRM2')
-            #         filePtr.write(struct.pack('<H', frame_id))          # FrameID: uint16
-            #         filePtr.write(struct.pack('<B', len(keyframe_chunks)))  # KeyFrameChunkCount: uint8
-                    
-            #         for bone_id, chunk_flags, has_pos, has_rot in keyframe_chunks:
-            #             filePtr.write(struct.pack('<B', bone_id))       # BoneID: uint8
-            #             filePtr.write(struct.pack('<H', chunk_flags))   # ChunkFlags: uint16
-                        
-            #             if has_pos:
-            #                 LeftHandedPos = PositionFromRightHandToLeftHand(*LocalPos[bone_id, frame_id, :])
-            #                 filePtr.write(struct.pack('<3f', *LeftHandedPos))
-                        
-            #             if has_rot:
-            #                 LeftHandedRot = RightHandQuaternionXYZWToLeftQuaternionXYZ(*LocalRot[bone_id, frame_id, :])
-            #                 filePtr.write(struct.pack('<3f', *LeftHandedRot))
-
 def ProcessAnimFile(inputPath, outputPath):
     if os.path.exists(outputPath):
         return
@@ -534,60 +541,56 @@ def ProcessAnimFile(inputPath, outputPath):
     if IK_R_HandName != None:
         StartRHandPosition = InputAnimation.GetNodePosByName(IK_R_HandName)
 
-    # LowerLegLength * 1.16
-    InputAnimation.ScaleBoneIfExist('foot2L', "Bone06", 1.16)
-    InputAnimation.ScaleBoneIfExist('foot2L', "foot3L", 1.16)
-    InputAnimation.ScaleBoneIfExist('foot2R', "Bone03", 1.16)
-    InputAnimation.ScaleBoneIfExist('foot2R', "foot3R", 1.16)
-    # UpperLegLength * 0.99
-    InputAnimation.ScaleBoneIfExist('foot1L', "foot2L", 0.99)
-    InputAnimation.ScaleBoneIfExist('foot1R', "foot2R", 0.99)
-    # PelvisWidth * 0.83
-    if InputAnimation.IsBoneExist("foot1R") and InputAnimation.IsBoneExist("foot1L"):
-        InputAnimation.ScaleNodeGroup(['foot1R', "foot1L"], 0.83)
-    # LowerBody * 1.09
-    InputAnimation.ScaleBoneIfExist('Body', "IK_LeftRight", 1.09)
-    # Clavicle * 0.78
-    InputAnimation.ScaleBoneIfExist('IK_UpDown', "Clavicle_left", 0.78)
-    InputAnimation.ScaleBoneIfExist('IK_UpDown', "Clavicle_right", 0.78)
-    # Neck * 0.75
-    InputAnimation.ScaleBoneIfExist('IK_UpDown', "Head", 0.78)
-    # ClavicleWidth * 0.43
-    if InputAnimation.IsBoneExist("Clavicle_left") and InputAnimation.IsBoneExist("Clavicle_right"):
-        InputAnimation.ScaleNodeGroup(['Clavicle_left', "Clavicle_right"], 0.43)
-    # Hand1L * 1.05 / Hand1R * 0.91
-    InputAnimation.ScaleBoneIfExist('Clavicle_left', "Hand1L", 0.71)
-    InputAnimation.ScaleBoneIfExist('Clavicle_right', "Hand1R", 0.71)
-    # Hand2_LR * 0.80
-    InputAnimation.ScaleBoneIfExist('Hand1L', "Hand2L", 0.80)
-    InputAnimation.ScaleBoneIfExist('Hand1R', "Hand2R", 0.80)
-    # Hand3_LR * 0.90
-    InputAnimation.ScaleBoneIfExist('Hand2L', "Hand_rot1L", 0.90)
-    InputAnimation.ScaleBoneIfExist('Hand2L', "Hand3L", 0.90)
-    InputAnimation.ScaleBoneIfExist('Hand2L', "left_hand", 0.90)
-    InputAnimation.ScaleBoneIfExist('Hand2R', "Hand_rot1R", 0.90)
-    InputAnimation.ScaleBoneIfExist('Hand2R', "Hand3R", 0.90)
-    InputAnimation.ScaleBoneIfExist('Hand2R', "right_hand", 0.90)
+    # Set Fixed offset
+    ## LowerBody
+    # InputAnimation.ApplyLocalPosIfExist('Body', np.array((0,0,-19.9225))) # Body should be free to move
+    InputAnimation.ApplyLocalPosIfExist('foot1R', np.array((-0.1435,1.7855,-0.489)))
+    InputAnimation.ApplyLocalPosIfExist('foot2R', np.array((9.25,0,0)))
+    InputAnimation.ApplyLocalPosIfExist('foot3R', np.array((10.5,0,0)))
+    InputAnimation.ApplyLocalPosIfExist('Bone03', np.array((10,0.25,0)))
+    InputAnimation.ApplyLocalPosIfExist('Bone05', np.array((2.95,0,0)))
+    
+    InputAnimation.ApplyLocalPosIfExist('foot1L', np.array((-0.1435,-1.7855,-0.489)))
+    InputAnimation.ApplyLocalPosIfExist('foot2L', np.array((9.25,0,0)))
+    InputAnimation.ApplyLocalPosIfExist('foot3L', np.array((10.5,0,0)))
+    InputAnimation.ApplyLocalPosIfExist('Bone06', np.array((10,0.25,0)))
+    InputAnimation.ApplyLocalPosIfExist('Bone07', np.array((2.95,0,0)))
+    
 
-    # Move Shoulder Back By 0.295 * Local Height
-    if InputAnimation.IsBoneExist("IK_UpDown"):
-        if InputAnimation.IsBoneExist("Clavicle_left"):
-            ClavivleLeftLocPos = InputAnimation.GetLocalPos("Clavicle_left")
-            NewClavivleLeftLocPos = ClavivleLeftLocPos.copy()
-            NewClavivleLeftLocPos[:,0] -= NewClavivleLeftLocPos[:,1] * 0.295
-            InputAnimation.ApplyLocalPos("Clavicle_left", NewClavivleLeftLocPos)
+    ## UpperBody
+    InputAnimation.ApplyLocalPosIfExist('IK_LeftRight', np.array((2.075,0.0375,0)))
+    InputAnimation.ApplyLocalPosIfExist('IK_UpDown', np.array((0,0,-1.668)))
+    InputAnimation.ApplyLocalPosIfExist('Head', np.array((-1.596, 5.411, 0)))
 
-        if InputAnimation.IsBoneExist("Clavicle_right"):
-            ClavivleRightLocPos = InputAnimation.GetLocalPos("Clavicle_right")
-            NewClavivleRightLocPos = ClavivleRightLocPos.copy()
-            NewClavivleRightLocPos[:,0] -= NewClavivleRightLocPos[:,1] * 0.295
-            InputAnimation.ApplyLocalPos("Clavicle_right", NewClavivleRightLocPos)
+    InputAnimation.ApplyLocalPosIfExist('Clavicle_right', np.array((-1.425, 4.7775, -0.3945)))
+    InputAnimation.ApplyLocalPosIfExist('Hand1R', np.array((0.05, -0.75, -1.96)))
+    InputAnimation.ApplyLocalPosIfExist('Hand2R', np.array((5.0, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Hand3R', np.array((4.73, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Hand_rot1R', np.array((4.73, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('right_hand', np.array((5.735, -0.125, 0.25)))
 
-        if InputAnimation.IsBoneExist("Head"):
-            HeadLocPos = InputAnimation.GetLocalPos("Head")
-            NewHeadLocPos = HeadLocPos.copy()
-            NewHeadLocPos[:,0] -= NewHeadLocPos[:,1] * 0.295
-            InputAnimation.ApplyLocalPos("Head", NewHeadLocPos)
+    InputAnimation.ApplyLocalPosIfExist('Palm1R', np.array((0, -0.36, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm2R', np.array((0, 0, 1.285)))
+    InputAnimation.ApplyLocalPosIfExist('Palm2R_hide', np.array((0, 0, 1.285)))
+    InputAnimation.ApplyLocalPosIfExist('Palm3R', np.array((0.579, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm3R_hide', np.array((0.579, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm4R_hide', np.array((0.512, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('IK Chain07', np.array((0, 0, 2.7)))
+
+    InputAnimation.ApplyLocalPosIfExist('Clavicle_left', np.array((-1.425, 4.7775, 0.3945)))
+    InputAnimation.ApplyLocalPosIfExist('Hand1L', np.array((0.05, -0.75, 1.96)))
+    InputAnimation.ApplyLocalPosIfExist('Hand2L', np.array((5.0, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Hand3L', np.array((4.73, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Hand_rot1L', np.array((4.73, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('left_hand', np.array((5.735, -0.125, -0.25)))
+
+    InputAnimation.ApplyLocalPosIfExist('Palm1L', np.array((0, -0.36, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm2L', np.array((0, 0, 1.285)))
+    InputAnimation.ApplyLocalPosIfExist('Palm2L_hide', np.array((0, 0, 1.285)))
+    InputAnimation.ApplyLocalPosIfExist('Palm3L', np.array((0.579, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm3L_hide', np.array((0.579, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('Palm4L_hide', np.array((0.512, 0, 0)))
+    InputAnimation.ApplyLocalPosIfExist('IK Chain08', np.array((0, 0, 2.7)))
 
     # IK
     ## Initial
@@ -596,17 +599,18 @@ def ProcessAnimFile(inputPath, outputPath):
         CurrentRFootPosition = InputAnimation.GetNodePosByName("foot3R")
         OverallPosOffset = ((StartLFootPosition + StartRFootPosition) - (CurrentLFootPosition + CurrentRFootPosition)) / 2
         InputAnimation.ApplyOverallPosOffset(OverallPosOffset, ExcludeBones=["BASIS"])
-    # ## Full
-    # if InputAnimation.IsBoneExist('Hand1L') and InputAnimation.IsBoneExist('Hand2L') and IK_L_HandName != None:
-    #     InputAnimation.IKToPosition('Hand1L','Hand2L',IK_L_HandName, StartLHandPosition, HandBoneApplyNameList=LH_IK_TargetList)
-    # if InputAnimation.IsBoneExist('Hand1R') and InputAnimation.IsBoneExist('Hand2R') and IK_R_HandName != None:
-    #     InputAnimation.IKToPosition('Hand1R','Hand2R',IK_R_HandName, StartRHandPosition, HandBoneApplyNameList=RH_IK_TargetList)
+    ## Full
+    if InputAnimation.IsBoneExist("foot3L") and InputAnimation.IsBoneExist("foot3R"):
+        InputAnimation.IKToPosition('foot1L','foot2L','foot3L', StartLFootPosition, ElbowPositive = False)
+        InputAnimation.IKToPosition('foot1R','foot2R','foot3R', StartRFootPosition, ElbowPositive = False)
+
+    if InputAnimation.IsBoneExist('Hand1L') and InputAnimation.IsBoneExist('Hand2L') and IK_L_HandName != None:
+        InputAnimation.IKToPosition('Hand1L','Hand2L',IK_L_HandName, StartLHandPosition, ElbowPositive = True, HandBoneApplyNameList=LH_IK_TargetList)
+    if InputAnimation.IsBoneExist('Hand1R') and InputAnimation.IsBoneExist('Hand2R') and IK_R_HandName != None:
+        InputAnimation.IKToPosition('Hand1R','Hand2R',IK_R_HandName, StartRHandPosition, ElbowPositive = True, HandBoneApplyNameList=RH_IK_TargetList)
 
 
-    # if InputAnimation.IsBoneExist("foot3L") and InputAnimation.IsBoneExist("foot3R"):
-    #     InputAnimation.IKToPosition('foot1L','foot2L','foot3L', StartLFootPosition)
-    #     InputAnimation.IKToPosition('foot1R','foot2R','foot3R', StartRFootPosition)
-    # InputAnimation.ExportFrameToCSV(0, "After.csv")
+    InputAnimation.ExportFrameToCSV(0, "After.csv")
     # ## Write
     InputAnimation.write(outputPath)
 
@@ -618,23 +622,29 @@ def TryProcessAnimFile(*Params):
 
 
 if __name__== "__main__":
-    # # # DEBUG
-    InputAnim = GOHAnim(r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation\human\locomotion\sprint_gun_up\anim_sprint_gun_2hand_up.anm")
-    InputAnim.ExportFrameToCSV(0, r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\Before.csv")
-    # InputAnim.write(r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\anim_idle_02_Refit.anm")
-    ProcessAnimFile(r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation\human\locomotion\sprint_gun_up\anim_sprint_gun_2hand_up.anm", r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\anim_idle_02_Refit.anm")
-    GOHAnim(r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\anim_idle_02_Refit.anm").ExportFrameToCSV(0, r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\After.csv")
+    # # # # DEBUG
+    # TestInputAnimPath = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation\human\death\die_crouch\die_crouch_01a.anm"
+    # TestOutputAnimPath = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\TEST.anm"
+    # if os.path.isfile(TestOutputAnimPath):
+    #     os.remove(TestOutputAnimPath)
+    # InputAnim = GOHAnim(TestInputAnimPath)
+    # InputAnim.ExportFrameToCSV(0, r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\Before.csv")
+    # # # InputAnim.write(r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\anim_idle_02_Refit.anm")
+    # ProcessAnimFile(TestInputAnimPath, TestOutputAnimPath)
+    # GOHAnim(TestOutputAnimPath).ExportFrameToCSV(0, r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\After.csv")
 
     # # Run
-    # WorkerPool = Pool(32)
-    # InputRoot = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation"
-    # OutputRoot = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation_patch\animation"
-    # TaskList = list()
-    # for root, dirs, files in os.walk(InputRoot):
-    #     for file in files:
-    #         if file.endswith(".anm"):
-    #             inputPath = os.path.join(root, file)
-    #             outputPath = os.path.join(OutputRoot, os.path.relpath(inputPath, InputRoot))
-    #             TaskList.append([inputPath, outputPath])
-    # # [ProcessAnimFile(*Task) for Task in TaskList]
-    # WorkerPool.starmap(TryProcessAnimFile, TaskList)
+    WorkerPool = Pool(32)
+    InputRoot = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation"
+    OutputRoot = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\animation_patch\animation"
+    TaskList = list()
+    for root, dirs, files in os.walk(InputRoot):
+        for file in files:
+            if file.endswith(".anm"):
+                inputPath = os.path.join(root, file)
+                outputPath = os.path.join(OutputRoot, os.path.relpath(inputPath, InputRoot))
+                TaskList.append([inputPath, outputPath])
+            else:
+                print(f"Strangefile is not anm: [{os.path.join(root, file)}]")
+    # [TryProcessAnimFile(*Task) for Task in TaskList]
+    WorkerPool.starmap(TryProcessAnimFile, TaskList)

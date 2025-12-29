@@ -1,78 +1,72 @@
 import numpy as np
-
-def GetRotatedVector(VectorA:np.ndarray, VectorB:np.ndarray, ExpectedLength:float):
-    Length_VecA = np.linalg.norm(VectorA)
-    Length_VecB = np.linalg.norm(VectorB)
-    
-    # Validate inputs
-    if Length_VecA < 1e-10:
-        raise ValueError("Vector A has zero length")
-    elif Length_VecB < 1e-10:
-        raise ValueError("Vector B has zero length")
-    elif ExpectedLength < 0:
-        raise ValueError("ExpectedLength must be non-negative")
-    elif np.linalg.norm(np.cross(VectorA, VectorB)) / (Length_VecA * Length_VecB) < 1e-10:
-        raise ValueError("Vector A and Vector B are parallel")
-    
-    # Get UnitVector for VectorA
-    Unit_VecA = VectorA / Length_VecA
-
-    # Edge cases
-    if ExpectedLength >= Length_VecA + Length_VecB:
-        return Length_VecB * Unit_VecA
-    elif ExpectedLength <= abs(Length_VecA - Length_VecB):
-        return -(Length_VecB * Unit_VecA)
-    
-    # Normal case: solve for C in the plane of A and B
-    # C = alpha * Unit_VecA + beta * B_perp_hat
-    
-    # Get unit vector perpendicular to A, in the plane of A and B
-    B_perp = VectorB - np.dot(VectorB, Unit_VecA) * Unit_VecA
-    B_perp_hat = B_perp / np.linalg.norm(B_perp)
-    
-    # Solve constraints:
-    # |A + C|² = L²  →  alpha = (L² - a² - b²) / (2a)
-    # |C|² = b²      →  beta = √(b² - alpha²)
-    alpha = (ExpectedLength**2 - Length_VecA**2 - Length_VecB**2) / (2 * Length_VecA)
-    beta = np.sqrt(max(0, Length_VecB**2 - alpha**2))
-    
-    return alpha * Unit_VecA + beta * B_perp_hat
-
 from scipy.spatial.transform import Rotation
+# TargetBoneVector != Find_YZ_Rotation(CurrentRotation, CurrentBoneVector, TargetBoneVector).apply(CurrentRotation.inv(CurrentBoneVector))
+def angular_diff(a, b):
+    return np.abs(np.arctan2(np.sin(a - b), np.cos(a - b)))
 
-def GetVectorRotationQuat(VectorA:np.ndarray, VectorB:np.ndarray):
+def Find_YZ_Rotation(CurrentRotation:Rotation, CurrentBoneVector:np.ndarray, TargetBoneVector:np.ndarray):
     """
-    Compute the quaternion that rotates vec_a to vec_b.
+    Find new Euler XYZ rotation (only changing Y and Z) to align bone to target.
     
     Parameters:
-        vec_a: 3D vector (source)
-        vec_b: 3D vector (target)
+    - current_rotation_euler: Current Euler angles [x, y, z] in radians (XYZ order)
+    - current_bone_vector: Current bone direction vector (3D)
+    - target_bone_vector: Target bone direction vector (3D)
     
     Returns:
-        Quaternion as [x, y, z, w] (scipy convention)
+    - new_euler: New Rotation
     """
-    # Normalize vectors
-    Unit_VecA = VectorA / np.linalg.norm(VectorA)
-    Unit_VecB = VectorB / np.linalg.norm(VectorB)
+    # Normalize input vectors
+    CurrentBoneUnitVector = CurrentBoneVector.copy() / np.linalg.norm(CurrentBoneVector, axis=-1, keepdims=True)
+    TargetBoneUnitVector = TargetBoneVector.copy() / np.linalg.norm(TargetBoneVector, axis=-1, keepdims=True)
     
-    # Rotation axis (cross product)
-    RotationAxis = np.cross(Unit_VecA, Unit_VecB)
-    RotationAxisNorm = np.linalg.norm(RotationAxis)
-    RotationAxis = RotationAxis / RotationAxisNorm
+    # Get rest pose bone vector (before any rotation)
+    CurrentBoneUnitRestedVector = CurrentRotation.inv().apply(CurrentBoneUnitVector)
     
-    # Dot product for angle
-    Unit_Vec_Dot = np.clip(np.dot(Unit_VecA, Unit_VecB), -1.0, 1.0)
+    # X angle stays fixed
+    CurrentRotationEuler = CurrentRotation.as_euler(seq="xyz")
+    New_X_Rot = CurrentRotationEuler[:,0]
     
-    # Edge cases (parallel vectors)
-    if RotationAxisNorm < 1e-10:
-        if Unit_Vec_Dot > 0:
-            # Same direction → identity quaternion
-            return np.array([0.0, 0.0, 0.0, 1.0])
-        else:
-            # Opposite direction → 180° rotation around any perpendicular axis
-            perp = np.array([1, 0, 0]) if abs(Unit_VecA[0]) < 0.9 else np.array([0, 1, 0])
-            RotationAxis = np.cross(Unit_VecA, perp)
-            RotationAxis = RotationAxis / np.linalg.norm(RotationAxis)
-            return np.array([RotationAxis[0], RotationAxis[1], RotationAxis[2], 0.0])
-        
-    return Rotation.from_rotvec(RotationAxis * np.arccos(Unit_Vec_Dot)).as_quat(canonical = False)
+    # Apply only X rotation to get intermediate vector
+    CurrentBoneUnitXRotatedVector = Rotation.from_euler('X', New_X_Rot).apply(CurrentBoneUnitRestedVector)
+
+    CurrentBoneUnitXRotatedVector_X, CurrentBoneUnitXRotatedVector_Y, CurrentBoneUnitXRotatedVector_Z = CurrentBoneUnitXRotatedVector.T
+    TargetBoneUnitVectorX, TargetBoneUnitVectorY, TargetBoneUnitVectorZ = TargetBoneUnitVector.T
+    
+    # Solve for Y angle (XZ plane): tz = -vx*sin(y) + vz*cos(y)
+    CurrentBoneUnitXRotatedVector_XZ_ProjectionLength = np.sqrt(CurrentBoneUnitXRotatedVector_X**2 + CurrentBoneUnitXRotatedVector_Z**2)
+    
+    New_Y_Rot = np.zeros_like(New_X_Rot)
+    
+    XZ_LengthMask = CurrentBoneUnitXRotatedVector_XZ_ProjectionLength >= 1e-10
+    New_Y_Rot[np.logical_not(XZ_LengthMask)] = CurrentRotationEuler[:,1][np.logical_not(XZ_LengthMask)]
+
+    XZ_CosineValue = np.clip(TargetBoneUnitVectorZ[XZ_LengthMask] / CurrentBoneUnitXRotatedVector_XZ_ProjectionLength[XZ_LengthMask], -1.0, 1.0)
+    XZ_AlphaValue = np.arctan2(CurrentBoneUnitXRotatedVector_X[XZ_LengthMask], CurrentBoneUnitXRotatedVector_Z[XZ_LengthMask])
+
+    Current_Y_Rot = CurrentRotationEuler[:,1][XZ_LengthMask]
+    New_Y_Rot_Var_1 = np.arccos(XZ_CosineValue) - XZ_AlphaValue
+    New_Y_Rot_Var_2 = -np.arccos(XZ_CosineValue) - XZ_AlphaValue
+
+    New_Y_Rot_Var_1_Diff = angular_diff(New_Y_Rot_Var_1, Current_Y_Rot)
+    New_Y_Rot_Var_2_Diff = angular_diff(New_Y_Rot_Var_2, Current_Y_Rot)
+    New_Y_Rot_Var_2_Mask = New_Y_Rot_Var_1_Diff > New_Y_Rot_Var_2_Diff
+    New_Y_Rot_Var_1[New_Y_Rot_Var_2_Mask] = New_Y_Rot_Var_2[New_Y_Rot_Var_2_Mask]
+
+    New_Y_Rot[XZ_LengthMask] = New_Y_Rot_Var_1
+    
+    # Apply Y rotation to get intermediate vector
+    CurrentBoneUnitXYRotatedVector = Rotation.from_euler('Y', New_Y_Rot).apply(CurrentBoneUnitXRotatedVector)
+    CurrentBoneUnitXYRotatedVector_X, CurrentBoneUnitXYRotatedVector_Y, CurrentBoneUnitXYRotatedVector_Z = CurrentBoneUnitXYRotatedVector.T
+    
+    # Solve for Z angle (XY plane)
+    New_Z_Rot = np.zeros_like(New_X_Rot)
+    XY_LengthMask = np.logical_or(abs(CurrentBoneUnitXYRotatedVector_X) > 1e-10, abs(CurrentBoneUnitXYRotatedVector_Y) > 1e-10)
+    New_Z_Rot[np.logical_not(XY_LengthMask)] = CurrentRotationEuler[:,2][np.logical_not(XY_LengthMask)]
+    New_Z_Rot[XY_LengthMask] = np.arctan2(
+        (TargetBoneUnitVectorY[XY_LengthMask] * CurrentBoneUnitXYRotatedVector_X[XY_LengthMask]) - 
+        (TargetBoneUnitVectorX[XY_LengthMask] * CurrentBoneUnitXYRotatedVector_Y[XY_LengthMask]), 
+        (TargetBoneUnitVectorX[XY_LengthMask] * CurrentBoneUnitXYRotatedVector_X[XY_LengthMask]) + 
+        (TargetBoneUnitVectorY[XY_LengthMask] * CurrentBoneUnitXYRotatedVector_Y[XY_LengthMask]))
+    
+    return Rotation.from_euler("xyz", np.stack([New_X_Rot, New_Y_Rot, New_Z_Rot], axis=-1))

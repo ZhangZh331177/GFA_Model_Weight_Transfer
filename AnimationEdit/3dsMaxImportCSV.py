@@ -1,6 +1,6 @@
 from pymxs import runtime as rt
 Prefix = "GFA_MWT_SKE_"
-CSVPath = r"C:\Users\simon\Downloads\AnimationEdit\Before.csv"
+CSVPath = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\AnimationEdit\After.csv"
 with open(CSVPath) as inputCSV:
     for line in inputCSV:
         NodeNameStr, XStr, YStr, ZStr = line.split(",")
