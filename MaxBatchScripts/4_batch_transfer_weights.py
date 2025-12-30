@@ -5,7 +5,7 @@ import re
 
 # ================= 配置区域 =================
 # 输入目录 (参考 3_batch_align.py)
-input_dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\2_temp\GF2tec"
+input_dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\4_test\20251223Simon"
 # 通用前缀 (用于 safr_pack_6 字段)
 SAFR_PREFIX = "agf_"
 # ===========================================
@@ -13,10 +13,11 @@ SAFR_PREFIX = "agf_"
 def transfer_weights(body_mesh, body_skin):
     """
     执行 ref_3_3_TransferWeightFinal.py 的核心逻辑
+    (Modified to match step3.py implementation)
     """
     print("开始执行权重转移逻辑...")
     
-    # Merge bone array
+    # Merge bone array (from step3.py)
     bone_merging_list = [
         [["ControlNode"], [("GFA_MWT_SKE_Body", 1.0)]],
         [["ParentNode"], [("GFA_MWT_SKE_Body", 1.0)]],
@@ -77,62 +78,75 @@ def transfer_weights(body_mesh, body_skin):
         [["Eye_R"], [("GFA_MWT_SKE_Head", 1.0)]],
 
 
-        [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 0.85), ("GFA_MWT_SKE_Palm1L", 0.15)]], # Is this correct???
-        [["Thumb0_L"], [("GFA_MWT_SKE_Palm1L", 0.95), ("GFA_MWT_SKE_Palm1L", 0.05)]],
-        [["Thumb1_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
-        [["Thumb2_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]],
+        [["Wrist_L"], [("GFA_MWT_SKE_Palm1L", 1.0)]], # Is this correct???
+        [["Thumb0_L"], [("GFA_MWT_SKE_Palm1L", 0.975), ("GFA_MWT_SKE_Palm1L", 0.025)]],
+        [["Thumb1_L"], [("GFA_MWT_SKE_Palm1L", 0.95), ("GFA_MWT_SKE_Palm1L", 0.05)]],
+        [["Thumb2_L"], [("GFA_MWT_SKE_Palm1L", 0.9), ("GFA_MWT_SKE_Palm2L", 0.1)]],
 
-        [["IndexFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-        [["LittleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-        [["MiddleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
-        [["RingFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.55), ("GFA_MWT_SKE_Palm1L", 0.45)]],
+        [["IndexFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+        [["MiddleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+        [["RingFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
+        [["LittleFinger1_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.425), ("GFA_MWT_SKE_Palm3L", 0.075)]],
 
-        [["IndexFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-        [["LittleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-        [["MiddleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
-        [["RingFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.25), ("GFA_MWT_SKE_Palm2L", 0.7), ("GFA_MWT_SKE_Palm3L", 0.05)]],
+        [["IndexFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+        [["MiddleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+        [["RingFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
+        [["LittleFinger2_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.15)]],
 
-        [["IndexFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-        [["LittleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-        [["MiddleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
-        [["RingFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.15), ("GFA_MWT_SKE_Palm2L", 0.35), ("GFA_MWT_SKE_Palm3L", 0.5)]],
+        [["IndexFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.36), ("GFA_MWT_SKE_Palm3L", 0.14)]],
+        [["MiddleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.37), ("GFA_MWT_SKE_Palm3L", 0.13)]],
+        [["RingFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.38), ("GFA_MWT_SKE_Palm3L", 0.12)]],
+        [["LittleFinger3_L"], [("GFA_MWT_SKE_Palm1L", 0.50), ("GFA_MWT_SKE_Palm2L", 0.39), ("GFA_MWT_SKE_Palm3L", 0.11)]],
 
-        [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 0.85), ("GFA_MWT_SKE_Palm1R", 0.15)]], # Is this correct???
-        [["Thumb0_R"], [("GFA_MWT_SKE_Palm1R", 0.95), ("GFA_MWT_SKE_Palm1R", 0.05)]],
-        [["Thumb1_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
-        [["Thumb2_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]],
+        [["Wrist_R"], [("GFA_MWT_SKE_Palm1R", 1.0)]], # Is this correct???
+        [["Thumb0_R"], [("GFA_MWT_SKE_Palm1R", 0.975), ("GFA_MWT_SKE_Palm1R", 0.025)]],
+        [["Thumb1_R"], [("GFA_MWT_SKE_Palm1R", 0.95), ("GFA_MWT_SKE_Palm1R", 0.05)]],
+        [["Thumb2_R"], [("GFA_MWT_SKE_Palm1R", 0.9), ("GFA_MWT_SKE_Palm2R", 0.1)]],
 
-        [["IndexFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-        [["LittleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-        [["MiddleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
-        [["RingFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.55), ("GFA_MWT_SKE_Palm1R", 0.45)]],
+        [["IndexFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+        [["MiddleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+        [["RingFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
+        [["LittleFinger1_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.425), ("GFA_MWT_SKE_Palm2R", 0.075)]],
 
-        [["IndexFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-        [["LittleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-        [["MiddleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
-        [["RingFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.25), ("GFA_MWT_SKE_Palm2R", 0.7), ("GFA_MWT_SKE_Palm3R", 0.05)]],
+        [["IndexFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+        [["MiddleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+        [["RingFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
+        [["LittleFinger2_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.15)]],
         
-        [["IndexFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-        [["LittleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-        [["MiddleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
-        [["RingFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.15), ("GFA_MWT_SKE_Palm2R", 0.35), ("GFA_MWT_SKE_Palm3R", 0.5)]],
+        [["IndexFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.36), ("GFA_MWT_SKE_Palm3R", 0.14)]],
+        [["MiddleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.37), ("GFA_MWT_SKE_Palm3R", 0.13)]],
+        [["RingFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.38), ("GFA_MWT_SKE_Palm3R", 0.12)]],
+        [["LittleFinger3_R"], [("GFA_MWT_SKE_Palm1R", 0.50), ("GFA_MWT_SKE_Palm2R", 0.39), ("GFA_MWT_SKE_Palm3R", 0.11)]],
         
     ]
+
+    bone_names_set = set()
+    for source_bones, target_items in bone_merging_list:
+        for bone_name in source_bones:
+            bone_names_set.add(bone_name)
+        for bone_name, bone_weight in target_items:
+            bone_names_set.add(bone_name)
+    
+    # 检查骨骼是否存在
+    # 修改：只打印警告，不报错
+    for bone_name in bone_names_set:
+        if rt.getNodeByName(bone_name) == None:
+            print("Warning: Bone '" + str(bone_name) + "' does not exist in scene, will be skipped if encountered.")
+
     bone_merging_dict = dict()
     for source_group, target_group in bone_merging_list:
-        for target_name in target_group:
+        for target_item in target_group:
+            target_name = target_item[0]
             if rt.getNodeByName(target_name) == None:
-                raise(NameError("Error: Target Bone '"+target_name+"' do not exist!"))
+                raise NameError("Error: Target Bone '" + str(target_name) + "' do not exist!")
+        
         for source_name in source_group:
             if rt.getNodeByName(source_name) == None:
                 print("Warning: Source Bone '" + str(source_name) + "' does not exist in scene, will be skipped if encountered.")
                 continue
             bone_merging_dict[source_name] = target_group
-        
-
+    
     # 使用传入的 body_mesh 和 body_skin
-    # body_mesh = rt.selection[0] 
-    # body_skin = body_mesh.skin
     body_vert_count = body_mesh.numverts
 
     # Generate Old Bone Set And Bone_ID-Bone_Name dict
@@ -198,7 +212,8 @@ def transfer_weights(body_mesh, body_skin):
         if new_bone:
             rt.skinOps.AddBone(body_skin, new_bone, -1)
         else:
-            print("Warning: Target bone '" + str(new_bone_name) + "' not found, cannot add to skin.")
+            # Should not happen given validation
+            print("Warning: Target bone '" + str(new_bone_name) + "' not found.")
 
     # Generate Bone_Name-Bone_ID dict
     bone_name2id_dict = dict()
@@ -245,8 +260,10 @@ def process_files():
     
     for root, dirs, files in os.walk(input_dir):
         for filename in files:
-            # 寻找所有的 "_Aligned" 后缀的 max 文件
-            if filename.lower().endswith("_aligned.max"):
+            # 寻找所有的 "_Aligned" 或 "_Aligned_01" 后缀的 max 文件
+            # 使用正则匹配: _Aligned 后可选跟 _01，以 .max 结尾
+            match = re.search(r'(_Aligned)(_01)?\.max$', filename, re.IGNORECASE)
+            if match:
                 file_full_path = os.path.join(root, filename)
                 print("=========================================")
                 print("发现目标文件: " + filename)
@@ -382,8 +399,12 @@ def process_files():
                     if currentObject.name.startswith(Prefix):
                         currentObject.name = currentObject.name[len(Prefix):]
 
-                # 8. 另存为 _Final.max
-                save_filename = re.sub(r'_Aligned\.max$', '_Final.max', filename, flags=re.IGNORECASE)
+                # 8. 另存为 _Final.max (保持 _01 后缀)
+                # 规避 Python 2.7 re.sub unmatched group 问题，分情况处理
+                if re.search(r'_01\.max$', filename, re.IGNORECASE):
+                    save_filename = re.sub(r'_Aligned_01\.max$', '_Final_01.max', filename, flags=re.IGNORECASE)
+                else:
+                    save_filename = re.sub(r'_Aligned\.max$', '_Final.max', filename, flags=re.IGNORECASE)
                 save_full_path = os.path.join(root, save_filename)
                 
                 try:
