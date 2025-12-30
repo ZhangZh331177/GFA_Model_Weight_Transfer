@@ -192,8 +192,8 @@ def batch_convert(InputRoot, OutputRoot):
     print(f"Finised: {TotalPortingCount} Files Processed.")
 
 if __name__ == "__main__":
-    input_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\MMD_Input_Sample"
-    output_Dir = r"D:\GAMES\Modding\Python_MaxScript_Workdir\GFA_Model_Weight_Transfer\DAE_Output_Sample"
+    input_Dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\1_empty\20251223Simon"
+    output_Dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\3_temp\20251223Simon"
     # Ensure mmd_tools addon is enabled
     if not ensure_addon_enabled("mmd_tools"):
         print("Error: mmd_tools addon is not installed or cannot be enabled")
