@@ -3,8 +3,9 @@ import os
 
 # ================= 配置区域 =================
 # 输入目录
-input_dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\2_temp\GF2tec"
+input_dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\4_test\20251223Simon"
 template_file = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\template_renamed.max"
+template_file_01 = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\test1225\TargetSkeleton_GAN01.max"
 # ===========================================
 
 # ==============================================================================
@@ -113,7 +114,7 @@ def execute_remove_unused_bones(body_mesh, body_skin):
         for source_name in source_group:
             bone_merging_dict[source_name] = target_group
 
-    body_vert_count = body_mesh.numverts
+    body_vert_count = rt.skinOps.GetNumberVertices(body_skin)
     # 使用 Skin 自身的顶点数，而不是 Mesh 的顶点数，以防 Modifier Stack 中有其他改变拓扑的修改器
     # body_vert_count = rt.skinOps.GetNumberVertices(body_skin)
     
@@ -205,9 +206,80 @@ def execute_remove_unused_bones(body_mesh, body_skin):
     print("骨骼清理完成。")
 
 # ==============================================================================
+# 模块 3: 脖子缩放计算
+# ==============================================================================
+def VecDot(PointA, PointB):
+    return (PointA.x * PointB.x) + (PointA.y * PointB.y) + (PointA.z * PointB.z)
+
+def VecNorm(Point):
+    return (Point.x ** 2 + Point.y ** 2 + Point.z ** 2) ** 0.5
+
+def calculate_neck_scale_ratio():
+    LeftEyeName = "Eye_L"
+    RightEyeName = "Eye_R"
+    NeckName = "Neck"
+    LeftShoulderName = "ShoulderP_L"
+    RightShoulderName = "ShoulderP_R"
+    LeftFootName = "Ankle_L"
+    RightFootName = "Ankle_R"
+
+    # Check if bones exist
+    required_bones = [LeftEyeName, RightEyeName, NeckName, LeftShoulderName, RightShoulderName, LeftFootName, RightFootName]
+    for name in required_bones:
+        if rt.getNodeByName(name) == None:
+            print("计算脖子缩放跳过: 缺少骨骼 " + name)
+            return None
+
+    LeftEyePos = rt.getNodeByName(LeftEyeName).pos
+    RightEyePos = rt.getNodeByName(RightEyeName).pos
+    NeckPos = rt.getNodeByName(NeckName).pos
+    LeftShoulderPos = rt.getNodeByName(LeftShoulderName).pos
+    RightShoulderPos = rt.getNodeByName(RightShoulderName).pos
+    LeftFootPos = rt.getNodeByName(LeftFootName).pos
+    RightFootPos = rt.getNodeByName(RightFootName).pos
+
+    #### Head size factors
+    BodyVector = ((LeftShoulderPos + RightShoulderPos) - (LeftFootPos + RightFootPos)) / 2.0 #[0,-0.174142,-50.6248]
+    BodyDistance = VecNorm(BodyVector) # 50.62509951077789
+    
+    if BodyDistance == 0:
+         return None
+
+    EyeLRVector = LeftEyePos - RightEyePos
+    EyeLRDistance = VecNorm(EyeLRVector) # 2.11018
+    EyeLRRatio = EyeLRDistance / BodyDistance
+    EyeLRExpectedRatio = 0.041682486 # 2.11018 / 50.62509951077789
+    
+    if EyeLRRatio == 0:
+        return None
+        
+    RatioOffsetByEyeLR = EyeLRExpectedRatio / EyeLRRatio
+
+    EyeNeckVector = ((LeftEyePos + RightEyePos) / 2.0) - NeckPos #[0,-2.38843,5.42931]
+    EyeNeckDistanceOnBodyDirection = abs(VecDot(EyeNeckVector, BodyVector)) / VecNorm(BodyVector) # 5.421062073221453
+    EyeNeckRatio = EyeNeckDistanceOnBodyDirection / BodyDistance
+    EyeNeckExpectedRatio = 0.1070825 # 5.421062073221453 / 50.62509951077789
+    
+    if EyeNeckRatio == 0:
+        return None
+
+    RatioOffsetByEyeNeck = EyeNeckExpectedRatio / EyeNeckRatio
+
+    #### Resize Head
+    RatioOffset = (RatioOffsetByEyeLR * RatioOffsetByEyeNeck) ** (1.0/2.0)
+    return RatioOffset
+
+# ==============================================================================
 # 单场景处理流程
 # ==============================================================================
 def process_single_scene():
+    # 0. 预先计算脖子缩放比例 (在清理骨骼之前，确保骨骼存在且位置正确)
+    neck_scale_ratio = calculate_neck_scale_ratio()
+    if neck_scale_ratio:
+        print("已计算脖子缩放比例: {:.4f}".format(neck_scale_ratio))
+    else:
+        print("未能计算脖子缩放比例 (可能缺少参照骨骼)")
+
     # 1. 取消所有选中
     rt.clearSelection()
 
@@ -269,6 +341,19 @@ def process_single_scene():
             print("未找到蒙皮修改器，跳过骨骼清理。")
     else:
         print("未找到后缀为 '_mesh' 的物体。")
+
+    # 7. 应用脖子缩放 (如果计算成功)
+    if neck_scale_ratio:
+        neck_node = rt.getNodeByName("Neck")
+        if neck_node:
+            print("应用脖子缩放: {:.4f}".format(neck_scale_ratio))
+            try:
+                # 使用 scale 函数应用缩放变换
+                rt.scale(neck_node, rt.Point3(neck_scale_ratio, neck_scale_ratio, neck_scale_ratio))
+            except Exception as e:
+                print("应用脖子缩放失败: " + str(e))
+        else:
+            print("警告: Neck 骨骼在清理后未找到，无法应用缩放。")
 
     return target_mesh, skin_mod
 
@@ -357,7 +442,7 @@ def process_files():
                         print("已保存: " + new_filename)
                         
                         # =========================================================
-                        # 新增流程: 合并模板并另存为 _Merged
+                        # 流程 A: 合并模板并另存为 _Merged
                         # =========================================================
                         if os.path.exists(template_file):
                             print("正在合并模板文件: " + template_file)
@@ -380,6 +465,34 @@ def process_files():
                                 print("合并模板失败: " + str(e))
                         else:
                             print("警告: 模板文件不存在: " + template_file)
+                        
+                        # =========================================================
+                        # 流程 B: 合并模板 01 并另存为 _Merged_01
+                        # =========================================================
+                        # 检查 template_file_01 是否已定义
+                        target_template_01 = None
+                        if 'template_file_01' in globals():
+                            target_template_01 = template_file_01
+                        
+                        if target_template_01 and os.path.exists(target_template_01):
+                            print("正在合并模板文件 01: " + target_template_01)
+                            
+                            try:
+                                # 关键：重新加载 _Simplified.max，清除之前可能合并过的 template_file，确保环境纯净
+                                rt.loadMaxFile(save_full_path, quiet=True)
+                                
+                                rt.mergeMaxFile(target_template_01, rt.Name("mergeDups"), quiet=True)
+                                
+                                merged_01_filename = re.sub(r'_Simplified\.max$', '_Merged_01.max', new_filename, flags=re.IGNORECASE)
+                                merged_01_full_path = os.path.join(root, merged_01_filename)
+                                
+                                rt.saveMaxFile(merged_01_full_path, clearNeedSaveFlag=True, useNewFile=True, quiet=True)
+                                print("已保存合并版 01: " + merged_01_filename)
+                                
+                            except Exception as e:
+                                print("合并模板 01 失败: " + str(e))
+                        elif target_template_01:
+                             print("警告: 模板文件 01 不存在: " + target_template_01)
                         # =========================================================
                         
                     except Exception as e:
@@ -391,4 +504,3 @@ def process_files():
 import re # 需要用到正则替换文件名后缀
 if __name__ == "__main__":
     process_files()
-
