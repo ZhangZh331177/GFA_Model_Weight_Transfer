@@ -1,0 +1,925 @@
+import pymxs
+from pymxs import runtime as rt
+import os
+import math
+import re
+
+# ================= 配置区域 =================
+# 输入目录
+input_dir = r"E:\0_Self_Documents\Other\GOHMOD\mmd_model\4_test\20251223Simon"
+# ===========================================
+
+# ==============================================================================
+# 工具函数 (来自 ref_3_2_BoneAlignment.py)
+# ==============================================================================
+def SolveResizeChainRatio(WeightList, TargetResizeRatio, IterationTimes, low, high):
+    WS = sum(WeightList)
+    
+    cumulative_product = [WeightList[0]]
+    for i in range(1, len(WeightList)):
+        cumulative_product.append(cumulative_product[-1] * WeightList[i])
+    
+    def f(N):
+        result = 0.0
+        for i, (W, C) in enumerate(zip(WeightList, cumulative_product)):
+            result += (W * C) * (N ** (i + 1.0))
+        return result - (TargetResizeRatio * WS)
+    
+    f_low = f(low)
+    f_high = f(high)
+    
+    if f_low == 0:
+        return low
+    if f_high == 0:
+        return high
+    
+    for i in range(IterationTimes):
+        mid = (low + high) / 2.0
+        f_mid = f(mid)
+        
+        if f_mid == 0.0:
+            return mid
+        
+        if f_low * f_mid <= 0.0:
+            high = mid
+            f_high = f_mid
+        else:
+            low = mid
+            f_low = f_mid
+    
+    return (low + high) / 2.0
+
+def GetNodeByNameRaiser(InputNodeName):
+    TargetNode = rt.getNodeByName(InputNodeName)
+    if TargetNode == None:
+        raise ValueError("Trying to GetNodeByName on an Unknown Name: [" + InputNodeName + "]!")
+    else:
+        return TargetNode
+
+def GetPosFromNodeName(InputNodeName):
+    return GetNodeByNameRaiser(InputNodeName).pos
+
+def GetMeanPosFromNodeNameList(InputNodeNameList):
+    NodePosList = list()
+    for NodeName in InputNodeNameList:
+        NodePosList.append(GetPosFromNodeName(NodeName))
+    return sum(NodePosList) / len(NodePosList)
+
+def GetProjectedRotationOfPos(Pos1, Pos2, Plane):
+    DirectonVec = Pos2 - Pos1
+    if Plane == "XY":
+        angle = math.degrees(math.atan2(DirectonVec.y, DirectonVec.x))
+    elif Plane == "YZ":
+        angle = math.degrees(math.atan2(DirectonVec.z, DirectonVec.y))
+    elif Plane == "XZ":
+        angle = math.degrees(math.atan2(DirectonVec.z, DirectonVec.x))
+    else:
+        raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is "+Plane+"!")
+    
+    if angle < 0:
+        angle += 360
+    
+    return angle
+
+def GetProjectedRotation(Object1, Object2, Plane):
+    return GetProjectedRotationOfPos(Object2.pos, Object1.pos, Plane)
+
+def GetVectorLength(MaxVector):
+    return ((MaxVector.x **2) + (MaxVector.y **2) + (MaxVector.z **2)) ** 0.5
+
+def GetBoneLength(TargetBoneNames):
+    return(GetVectorLength(GetPosFromNodeName(TargetBoneNames[1]) - GetPosFromNodeName(TargetBoneNames[0])))
+
+def ApplyRotationOnPlane(TargetBone, Angle, Plane):
+    if Plane == "XY":
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
+    elif Plane == "YZ":
+        rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
+    elif Plane == "XZ":
+        rt.rotate(TargetBone, rt.eulerangles(0, -Angle, 0))
+    else:
+        raise ValueError("Plane should be one of 'XY', 'YZ' or 'XZ', Input value is '"+Plane+"'!")
+
+def ApplyRotationOnLocalAxis(TargetBone, Angle, Axis):
+    coordsys = getattr(pymxs.runtime, '%coordsys_context')
+    prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
+    if Axis == "X":
+        rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
+    elif Axis == "Y":
+        rt.rotate(TargetBone, rt.eulerangles(0, Angle, 0))
+    elif Axis == "Z":
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
+    else:
+        coordsys(prev_coordsys, None)
+        raise ValueError("Axis should be one of 'X', 'Y' or 'Z', Input value is '"+Axis+"'!")
+    coordsys(prev_coordsys, None)
+
+def ApplyRotationOnWorldAxis(TargetBone, Angle, Axis):
+    coordsys = getattr(pymxs.runtime, '%coordsys_context')
+    prev_coordsys = coordsys(pymxs.runtime.Name('world'), None)
+
+    if Axis == "X":
+        rt.rotate(TargetBone, rt.eulerangles(Angle, 0, 0))
+    elif Axis == "Y":
+        rt.rotate(TargetBone, rt.eulerangles(0, Angle, 0))
+    elif Axis == "Z":
+        rt.rotate(TargetBone, rt.eulerangles(0, 0, Angle))
+    else:
+        coordsys(prev_coordsys, None)
+        raise ValueError("Axis should be one of 'X', 'Y' or 'Z', Input value is '"+Axis+"'!")
+    coordsys(prev_coordsys, None)
+
+def ApplyRotationOnLocalAxisByName(TargetBoneName, Angle, Axis):
+    ApplyRotationOnLocalAxis(GetNodeByNameRaiser(TargetBoneName), Angle, Axis)
+
+def AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane):
+    RotatingBoneStart = GetNodeByNameRaiser(RotatingBone[0])
+    RotatingBoneEnd = GetNodeByNameRaiser(RotatingBone[1])
+    RotatingBoneProjectedRotation = GetProjectedRotation(RotatingBoneStart, RotatingBoneEnd, Plane)
+
+    TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
+    TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
+    TargetBoneProjectedRotation = GetProjectedRotation(TargetBoneStart, TargetBoneEnd, Plane)
+
+    RotationDiff = TargetBoneProjectedRotation - RotatingBoneProjectedRotation
+    ApplyRotationOnPlane(RotatingBoneStart, RotationDiff, Plane)
+
+def AlignBoneRotationOnPlaneBySequence(RotatingBone, TargetBone, PlaneSeq):
+    for Plane in PlaneSeq:
+        AlignBoneRotationOnPlane(RotatingBone, TargetBone, Plane)
+
+def ApplyScaleOnLocalAxis(ScalingBone, LengthRatio, LocalAxis, OtherAxisScaleFactor = 0.5):
+    coordsys = getattr(pymxs.runtime, '%coordsys_context')
+    prev_coordsys = coordsys(pymxs.runtime.Name('local'), None)
+
+    MainScale = LengthRatio
+    OtherScale = LengthRatio ** OtherAxisScaleFactor
+    if LocalAxis == "X":
+        rt.scale(ScalingBone, rt.Point3(MainScale,OtherScale,OtherScale))
+    elif LocalAxis == "Y":
+        rt.scale(ScalingBone, rt.Point3(OtherScale,MainScale,OtherScale))
+    elif LocalAxis == "Z":
+        rt.scale(ScalingBone, rt.Point3(OtherScale,OtherScale,MainScale))
+    else:
+        raise ValueError("LocalAxis should be one of 'X', 'Y' or 'Z', Input value is '"+LocalAxis+"'!")
+    
+    coordsys(prev_coordsys, None)
+
+def AlignBoneLength(ScalingBone, TargetBone, MainLocalAxis, UseProjectionLength = False, LengthRatioToTarget = 1.0, OtherAxisScaleFactor = 0.5):
+    try:
+        ScalingBoneStart = GetNodeByNameRaiser(ScalingBone[0])
+        ScalingBoneEnd = GetNodeByNameRaiser(ScalingBone[1])
+        ScalingBoneVector = ScalingBoneEnd.pos - ScalingBoneStart.pos
+
+        TargetBoneStart = GetNodeByNameRaiser(TargetBone[0])
+        TargetBoneEnd = GetNodeByNameRaiser(TargetBone[1])
+        TargetBoneVector = TargetBoneEnd.pos - TargetBoneStart.pos
+        
+        if UseProjectionLength:
+            raise NotImplementedError("Scaling with projection length is not implemented!")
+        else:
+            LengthRatio = (GetVectorLength(TargetBoneVector) / GetVectorLength(ScalingBoneVector)) * LengthRatioToTarget
+        
+        ApplyScaleOnLocalAxis(ScalingBoneStart, LengthRatio, MainLocalAxis, OtherAxisScaleFactor = OtherAxisScaleFactor)
+    except Exception as e:
+        Bone_A_Str = "'" + ScalingBone[0] + "','" + ScalingBone[1] + "'"
+        Bone_B_Str = "'" + TargetBone[0] + "','" + TargetBone[1] + "'"
+        raise RuntimeError("AlignBoneLength Raised Error: Failed to align Bone ["+Bone_A_Str+"] to Bone ["+Bone_B_Str+"] due to following exception:" + str(e))
+
+def GetMeanScale(InputBoneName):
+    InputBone = GetNodeByNameRaiser(InputBoneName)
+    CurrentScale = InputBone.scale
+    return abs(CurrentScale.x * CurrentScale.y * CurrentScale.z) ** (1.0 / 3.0)
+
+def NormalizeScale(InputBoneName):
+    InputBone = GetNodeByNameRaiser(InputBoneName)
+    InputBoneParent = InputBone.parent
+    InputBone.parent = None
+
+    CurrentScale = InputBone.scale
+    MeanScale = abs(CurrentScale.x * CurrentScale.y * CurrentScale.z) ** (1.0 / 3.0)
+    
+    # Preserve signs
+    NewScaleX = MeanScale if CurrentScale.x > 0 else -MeanScale
+    NewScaleY = MeanScale if CurrentScale.y > 0 else -MeanScale
+    NewScaleZ = MeanScale if CurrentScale.z > 0 else -MeanScale
+    
+    InputBone.scale = rt.Point3(NewScaleX, NewScaleY, NewScaleZ)
+    InputBone.parent = InputBoneParent
+
+def NormalizeScaleBreakLink(InputBoneName):
+    InputBone = GetNodeByNameRaiser(InputBoneName)
+    InputBoneParent = InputBone.parent
+    InputBone.parent = None
+
+    CurrentScale = InputBone.scale
+    MeanScale = abs(CurrentScale.x * CurrentScale.y * CurrentScale.z) ** (1.0 / 3.0)
+    
+    # Preserve signs
+    NewScaleX = MeanScale if CurrentScale.x > 0 else -MeanScale
+    NewScaleY = MeanScale if CurrentScale.y > 0 else -MeanScale
+    NewScaleZ = MeanScale if CurrentScale.z > 0 else -MeanScale
+
+    InputBone.scale = rt.Point3(NewScaleX, NewScaleY, NewScaleZ)
+
+def GetProjectionLength(Pos1, Pos2):
+    DotProduct = (Pos1.x * Pos2.x) + (Pos1.y * Pos2.y) + (Pos1.z * Pos2.z)
+    MagnitudePosB = ((Pos2.x ** 2) + (Pos2.y ** 2) + (Pos2.z ** 2)) ** 0.5
+    
+    if MagnitudePosB == 0:
+        raise ValueError("vector_b cannot be a zero vector")
+    
+    return DotProduct / MagnitudePosB
+
+def GetVectorMainAxis(StartNodeNameList, EndNodeNameList):
+    InputVector = GetMeanPosFromNodeNameList(EndNodeNameList) - GetMeanPosFromNodeNameList(StartNodeNameList)
+    X = InputVector.x
+    Y = InputVector.y
+    Z = InputVector.z
+    if abs(X) >= abs(Y) and abs(X) >= abs(Z):
+        if(X) > 0:
+            return("+", "X")
+        else:
+            return("-", "X")
+    elif abs(Y) >= abs(X) and abs(Y) >= abs(Z):
+        if(Y) > 0:
+            return("+", "Y")
+        else:
+            return("-", "Y")
+    else:
+        if(Z) > 0:
+            return("+", "Z")
+        else:
+            return("-", "Z")
+
+def GetChildPosDiffWihtParentRotation(ChildObject, ParentObject, Rotation, LocalAxis, RotateBack = True):
+    OriginalChildPos = ChildObject.pos
+    ApplyRotationOnLocalAxis(ParentObject, Rotation, LocalAxis)
+    RotatedChildPos = ChildObject.pos
+    if RotateBack:
+        ApplyRotationOnLocalAxis(ParentObject, -Rotation, LocalAxis)
+    return RotatedChildPos - OriginalChildPos
+
+def GetPoseValueByAxis(InputPos, InputAxis):
+    AxisDir, AxisName = InputAxis
+    if AxisName == "X":
+        ReturnValue =  InputPos.x
+    elif AxisName == "Y":
+        ReturnValue =  InputPos.y
+    elif AxisName == "Z":
+        ReturnValue =  InputPos.z
+    else:
+        raise ValueError("Name of InputAxis is not in XYZ !")
+    
+    if AxisDir == "+":
+        return ReturnValue
+    elif AxisDir == "-":
+        return -ReturnValue
+    else:
+        raise ValueError("Direction of InputAxis is not + nor - !")
+
+def GetExpectedRotationAxis(BoneName, FrontAxis, UpAxis):
+    FrontAxisDir, FrontAxisName = FrontAxis
+    # Create a dummy object and attach to Current Bone
+    CurrentObject = GetNodeByNameRaiser(BoneName)
+    DummyObject = rt.Dummy()
+
+    if FrontAxisDir == "+":
+        OffsetValue = 30.0
+    elif FrontAxisDir == "-":
+        OffsetValue = -30.0
+    else:
+        raise ValueError("Direction of FrontAis is not + nor - !")
+    
+    if FrontAxisName == "X":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(OffsetValue, 0, 0)
+    elif FrontAxisName == "Y":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(0, OffsetValue, 0)
+    elif FrontAxisName == "Z":
+        DummyObject.pos = CurrentObject.pos + rt.Point3(0, 0, OffsetValue)
+    else:
+        raise ValueError("Name of FrontAxis is not in XYZ !")
+    
+    DummyObject.parent = CurrentObject
+
+    AxisOffsetList = list()
+    for AxisName in ["X", "Y", "Z"]:
+        for AxisDir, CurrentRotation in zip(["+", "-"], [+45, -45]):
+            CurrentRotateOffset = GetChildPosDiffWihtParentRotation(DummyObject, CurrentObject, CurrentRotation, AxisName, RotateBack = True)
+            CurrentRotateOffsetValue = GetPoseValueByAxis(CurrentRotateOffset, UpAxis)
+            AxisOffsetList.append([[AxisDir, AxisName], CurrentRotateOffsetValue])
+    
+    AxisOffsetList.sort(key=lambda x: x[1])
+    rt.delete(DummyObject)
+
+    return AxisOffsetList[-1][0]
+
+def AutoRotateFinger(FingerBoneChain, FingerPointingAxis, RotatingTowardsAxis, RotationAng):
+    BoneRotationDict = dict()
+    LastBoneCount = 1
+    LastBoneRotationRatio = 0.75
+    for FingerBone in FingerBoneChain:
+        BoneRotationDict[FingerBone] = GetExpectedRotationAxis(FingerBone, FingerPointingAxis, RotatingTowardsAxis)
+        print(FingerBone, BoneRotationDict[FingerBone])
+    
+    for FingerBone in FingerBoneChain[:len(FingerBone) - LastBoneCount]:
+        RotationAxisDir, RotationAxisName = BoneRotationDict[FingerBone]
+        if RotationAxisDir == "+":
+            ApplyRotationOnLocalAxisByName(FingerBone, RotationAng, RotationAxisName)
+        elif RotationAxisDir == "-":
+            ApplyRotationOnLocalAxisByName(FingerBone, -RotationAng, RotationAxisName)
+        else:
+            raise ValueError("RotationAxisDir is not + nor - !")
+    
+    LastBoneRotationAng = RotationAng * LastBoneRotationRatio
+    for FingerBone in FingerBoneChain[len(FingerBone) - LastBoneCount:]:
+        RotationAxisDir, RotationAxisName = BoneRotationDict[FingerBone]
+        if RotationAxisDir == "+":
+            ApplyRotationOnLocalAxisByName(FingerBone, LastBoneRotationAng, RotationAxisName)
+        elif RotationAxisDir == "-":
+            ApplyRotationOnLocalAxisByName(FingerBone, -LastBoneRotationAng, RotationAxisName)
+        else:
+            raise ValueError("RotationAxisDir is not + nor - !")
+
+# ==============================================================================
+# 工具函数 (来自 ref_3.py 补充)
+# ==============================================================================
+def GetMeanPosDirectionDifferenceOnPlaneProjection(SourceNodeListStart, SourceNodeListEnd, TargetNodeListStart, TargetNodeListEnd, ProjectionPlane):
+    SourceVectorStart = GetMeanPosFromNodeNameList(SourceNodeListStart)
+    SourceVectorEnd = GetMeanPosFromNodeNameList(SourceNodeListEnd)
+    SourceVectorDirection = GetProjectedRotationOfPos(SourceVectorStart, SourceVectorEnd, ProjectionPlane)
+    
+    TargetVectorStart = GetMeanPosFromNodeNameList(TargetNodeListStart)
+    TargetVectorEnd = GetMeanPosFromNodeNameList(TargetNodeListEnd)
+    TargetVectorDirection = GetProjectedRotationOfPos(TargetVectorStart, TargetVectorEnd, ProjectionPlane)
+
+    DirectionDiff = TargetVectorDirection - SourceVectorDirection
+    
+    while DirectionDiff < -180:
+        DirectionDiff += 360
+    while DirectionDiff > 180:
+        DirectionDiff -= 360
+    
+    return DirectionDiff
+
+def NormalizeScaleBreakLinkEvenScale(InputBoneNameList):
+    # Rescale the input bone to restore 1:1:1 scaling, use geometric mean
+    ## Break The relationship
+    scaleList = list()
+    for BoneName in InputBoneNameList:
+        InputBone = GetNodeByNameRaiser(BoneName)
+        InputBone.parent = None
+        scaleList.append(InputBone.scale.x)
+        scaleList.append(InputBone.scale.y)
+        scaleList.append(InputBone.scale.z)
+
+    ScaleMult = 1.0
+    for currentScale in scaleList:
+        ScaleMult *= currentScale
+    MeanScale = abs(ScaleMult) ** (1.0 / float(len(scaleList)))
+
+    for BoneName in InputBoneNameList:
+        InputBone = GetNodeByNameRaiser(BoneName)
+        # Scale
+        CurrentScale = InputBone.scale
+        if CurrentScale.x > 0:
+            NewScaleX = MeanScale
+        else:
+            NewScaleX = -MeanScale
+
+        if CurrentScale.y > 0:
+            NewScaleY = MeanScale
+        else:
+            NewScaleY = -MeanScale
+
+        if CurrentScale.z > 0:
+            NewScaleZ = MeanScale
+        else:
+            NewScaleZ = -MeanScale
+        InputBone.scale = rt.Point3(NewScaleX, NewScaleY, NewScaleZ)
+
+# ==============================================================================
+# 核心功能 1: 执行骨骼对齐 (Ref: ref_3.py)
+# ==============================================================================
+def execute_alignment(MMD_RootName, MMD_MeshName):
+    print("--- 开始执行骨骼对齐 (Step2_01 Implementation) ---")
+    # We assume that both models are facing X+ (Right), and Head up to Z+ (UP), with foot contact the ground (Z=0)
+    MMD_Source_Config = "GF2"
+    # MMD_RootName and MMD_MeshName are passed as arguments
+    MMD_Root = GetNodeByNameRaiser(MMD_RootName)
+    MMD_Mesh = GetNodeByNameRaiser(MMD_MeshName)
+    MMD_ShoeIsBottom = True
+
+    SourceConfigs = {"GF2"}
+    if MMD_Source_Config not in SourceConfigs:
+        raise ValueError("Unknown Source Config!")
+
+    ## Axis Alignment
+    GOH_Shoulder_LR = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand1R")
+    GOH_Foot_LR = ("GFA_MWT_SKE_foot3L", "GFA_MWT_SKE_foot3R")
+    MMD_Shoulder_LR = ("Arm_L", "Arm_R")
+    MMD_Foots_LR = ("Ankle_L", "Ankle_R")
+
+    GOHHeadAxisDir, GOHHeadAxisName = GetVectorMainAxis(GOH_Foot_LR, GOH_Shoulder_LR)
+    MMDHeadAxisDir, MMDHeadAxisName = GetVectorMainAxis(MMD_Foots_LR, MMD_Shoulder_LR)
+    if MMDHeadAxisName != GOHHeadAxisName:
+        RotationAxis = ({"X", "Y", "Z"} - {MMDHeadAxisName, GOHHeadAxisName}).pop()
+        ApplyRotationOnWorldAxis(MMD_Root, 90, RotationAxis)
+        GOHHeadAxisDir, GOHHeadAxisName = GetVectorMainAxis(GOH_Foot_LR, GOH_Shoulder_LR)
+        MMDHeadAxisDir, MMDHeadAxisName = GetVectorMainAxis(MMD_Foots_LR, MMD_Shoulder_LR)
+
+    if MMDHeadAxisDir != GOHHeadAxisDir:
+        RotationAxis = ({"X", "Y", "Z"} - {MMDHeadAxisName, GOHHeadAxisName}).pop()
+        ApplyRotationOnWorldAxis(MMD_Root, 180, RotationAxis)
+        GOHHeadAxisDir, GOHHeadAxisName = GetVectorMainAxis(GOH_Foot_LR, GOH_Shoulder_LR)
+        MMDHeadAxisDir, MMDHeadAxisName = GetVectorMainAxis(MMD_Foots_LR, MMD_Shoulder_LR)
+
+    GOHShoulderAxisDir, GOHShoulderAxisName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
+    MMDShoulderAxisDir, MMDShoulderAxisName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
+    
+    if MMDShoulderAxisName != GOHShoulderAxisName:
+        ApplyRotationOnWorldAxis(MMD_Root, 90, MMDHeadAxisName)
+        GOHShoulderAxisDir, GOHShoulderAxisName = GetVectorMainAxis([GOH_Shoulder_LR[0],], [GOH_Shoulder_LR[1],])
+        MMDShoulderAxisDir, MMDShoulderAxisName = GetVectorMainAxis([MMD_Shoulder_LR[0],], [MMD_Shoulder_LR[1],])
+    
+    if MMDShoulderAxisDir != GOHShoulderAxisDir:
+        ApplyRotationOnWorldAxis(MMD_Root, 180, MMDHeadAxisName)
+
+    ## Full body Pre-Alignment
+    ## Lower Body Rotation Alignment
+
+    ### UpperLeg Parameters
+    UpperLegScalingAxis = "Y"
+    UpperLegRotationSequence = ["YZ", "XZ"]
+    GOH_UpperLegLeft = ("GFA_MWT_SKE_foot1L", "GFA_MWT_SKE_foot2L")
+    GOH_UpperLegRight = ("GFA_MWT_SKE_foot1R", "GFA_MWT_SKE_foot2R")
+    MMD_UpperLegLeft = ("Leg_L", "Knee_L")
+    MMD_UpperLegRight = ("Leg_R", "Knee_R")
+    MMD_UpperLegDLeft = ("LegD_L", "KneeD_L") # Why is there a "D" postfixed version?
+    MMD_UpperLegDRight = ("LegD_R", "KneeD_R") # Why is there a "D" postfixed version?
+
+    ### LowerLeg Parameters
+    LowerLegScalingAxis = "Y"
+    LowerLegRotationSequence = ["YZ", "XZ"]
+    GOH_LowerLegLeft = ("GFA_MWT_SKE_foot2L", "GFA_MWT_SKE_foot3L")
+    GOH_LowerLegRight = ("GFA_MWT_SKE_foot2R", "GFA_MWT_SKE_foot3R")
+
+    MMD_LowerLegLeft = ("Knee_L", "Ankle_L")
+    MMD_LowerLegRight = ("Knee_R", "Ankle_R")
+    MMD_LowerLegDLeft = ("KneeD_L", "AnkleD_L") # Why is there a "D" postfixed version?
+    MMD_LowerLegDRight = ("KneeD_R", "AnkleD_R") # Why is there a "D" postfixed version?
+
+    # These Names SHOULD be fixed in different run
+
+    ## Pre-Overall scaling: Lower Body Alignment
+    ### UpperLeg Rotation (YZ -> XZ)
+    AlignBoneRotationOnPlaneBySequence(MMD_UpperLegLeft, GOH_UpperLegLeft, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_UpperLegRight, GOH_UpperLegRight, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_UpperLegDLeft, GOH_UpperLegLeft, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_UpperLegDRight, GOH_UpperLegRight, UpperLegRotationSequence)
+
+    ### LowerLeg Rotation (YZ -> XZ)
+    AlignBoneRotationOnPlaneBySequence(MMD_LowerLegLeft, GOH_LowerLegLeft, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_LowerLegRight, GOH_LowerLegRight, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_LowerLegDLeft, GOH_LowerLegLeft, UpperLegRotationSequence)
+    AlignBoneRotationOnPlaneBySequence(MMD_LowerLegDRight, GOH_LowerLegRight, UpperLegRotationSequence)
+
+    ## Overall Alignment Parameters
+    BodyAlignmentPlane = "XZ"
+    GOH_Shoulder_Name_List = ["GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand1R"]
+    MMD_Shoulder_Name_List = ["Arm_R", "Arm_L"]
+    GOH_ShoulderLeftName = "GFA_MWT_SKE_Hand1L"
+    GOH_ShoulderRightName = "GFA_MWT_SKE_Hand1R"
+    MMD_ShoulderLeftName = "ShoulderC_L"
+    MMD_ShoulderRightName = "ShoulderC_R"
+    MMD_NeckBoneName = "Neck"
+    MMD_HeadBoneName = "Head"
+    GOH_NeckBoneName = "GFA_MWT_SKE_Head"
+
+    ## Overall Scaling Alignment
+    if (MMD_ShoeIsBottom):
+        MMD_ShoulderHeight = GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List).z - MMD_Mesh.min.z
+    else:
+        MMD_ShoulderHeight = GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List).z
+    
+    GOH_ShoulderHeight = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List).z
+    OverallScale = (GOH_ShoulderHeight / MMD_ShoulderHeight)
+
+    rt.scale(MMD_Root, rt.point3(OverallScale, OverallScale, OverallScale))
+
+    ### Overall Rotation Alignment
+    BodyDirectionDiff = GetMeanPosDirectionDifferenceOnPlaneProjection(
+        SourceNodeListStart = [MMD_LowerLegLeft[1], MMD_LowerLegRight[1]],
+        SourceNodeListEnd = MMD_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName],
+        TargetNodeListStart = [GOH_LowerLegLeft[1], GOH_LowerLegRight[1]],
+        TargetNodeListEnd = GOH_Shoulder_Name_List + [MMD_NeckBoneName, MMD_NeckBoneName],
+        ProjectionPlane = BodyAlignmentPlane
+    )
+    ApplyRotationOnPlane(MMD_Root, BodyDirectionDiff, BodyAlignmentPlane)
+
+    ### Re-Align Legs Rotation
+    for BoneName in [MMD_UpperLegLeft[0],MMD_UpperLegRight[0],MMD_UpperLegDLeft[0],MMD_UpperLegDRight[0]]:
+        ApplyRotationOnPlane(GetNodeByNameRaiser(BoneName), -BodyDirectionDiff, BodyAlignmentPlane)
+
+    ## Upper body alignment
+    ### Upper body Alignment Parameters
+    if GetNodeByNameRaiser("ShoulderP_L").parent.name != "UpperBody2":
+        raise NotImplementedError("ShoulderP_L's parent is not UpperBody2, Spine Chain is different from assumption!")
+    
+    UpperBodyAlignmentPlane = "XZ"
+    MMD_LowerBodyName = "LowerBody"
+    MMD_UpperBodyChain = [
+        ["Leg_L", "Leg_R"],
+        ["UpperBody"],
+        ["UpperBody2"],
+        ["ShoulderP_L", "ShoulderP_R"]
+    ]
+    GOH_UpperBodySourceList = ["GFA_MWT_SKE_foot1L", "GFA_MWT_SKE_foot1R"]
+    GOH_UpperBodyTargetList = ["GFA_MWT_SKE_Clavicle_left", "GFA_MWT_SKE_Clavicle_right"]
+
+    ### Get Upper body scaling
+    GOH_UpperBodyHeight = GetMeanPosFromNodeNameList(GOH_Shoulder_LR).z - GetMeanPosFromNodeNameList(GOH_UpperBodySourceList).z
+    MMD_UpperBodyHeight = GetMeanPosFromNodeNameList(MMD_Shoulder_LR).z - GetMeanPosFromNodeNameList(MMD_UpperBodyChain[0]).z
+    UpperBodyHeightScale = GOH_UpperBodyHeight / MMD_UpperBodyHeight
+
+    GOH_ShoulderVector = GetNodeByNameRaiser(GOH_ShoulderLeftName).pos - GetNodeByNameRaiser(GOH_ShoulderRightName).pos
+    MMD_ShoulderVector = GetNodeByNameRaiser(MMD_ShoulderLeftName).pos - GetNodeByNameRaiser(MMD_ShoulderRightName).pos
+    UpperBodyWidthScale = GetVectorLength(GOH_ShoulderVector) / GetVectorLength(MMD_ShoulderVector)
+
+    rt.scale(MMD_Root, rt.Point3(((UpperBodyWidthScale * UpperBodyHeightScale) ** 0.5), UpperBodyWidthScale, UpperBodyHeightScale))
+
+    #### Shoulder Alignment
+    #### Overall Position Alignment
+    GOH_FullBodyAlignmentPos = GetMeanPosFromNodeNameList([GOH_UpperLegLeft[0], GOH_UpperLegRight[0]])
+    MMD_FullBodyAlignmentPos = GetMeanPosFromNodeNameList([MMD_UpperLegLeft[0], MMD_UpperLegRight[0]])
+    MMD_Root.pos = MMD_Root.pos + (GOH_FullBodyAlignmentPos - MMD_FullBodyAlignmentPos)
+
+    ##### Alignment Shoulder By steps
+    ShoulderOffset = GetMeanPosFromNodeNameList(GOH_Shoulder_Name_List) - GetMeanPosFromNodeNameList(MMD_Shoulder_Name_List)
+    ###### Upperbody
+    GetNodeByNameRaiser("UpperBody2").pos = GetNodeByNameRaiser("UpperBody2").pos + (ShoulderOffset / 2.0)
+    ###### Shoulder_P
+    GetNodeByNameRaiser("ShoulderP_L").pos = GetNodeByNameRaiser("ShoulderP_L").pos + (ShoulderOffset / 2.0)
+    GetNodeByNameRaiser("ShoulderP_R").pos = GetNodeByNameRaiser("ShoulderP_R").pos + (ShoulderOffset / 2.0)
+    
+
+    LeftShoulderOffset = GetNodeByNameRaiser(GOH_ShoulderLeftName).pos.y - GetNodeByNameRaiser(MMD_ShoulderLeftName).pos.y
+    GetNodeByNameRaiser("ShoulderP_L").pos = GetNodeByNameRaiser("ShoulderP_L").pos + rt.Point3(0.0, LeftShoulderOffset/2.0, 0.0)
+    GetNodeByNameRaiser(MMD_ShoulderLeftName).pos = GetNodeByNameRaiser(MMD_ShoulderLeftName).pos + rt.Point3(0.0, LeftShoulderOffset/2.0, 0.0)
+
+    RightShoulderOffset = GetNodeByNameRaiser(GOH_ShoulderRightName).pos.y - GetNodeByNameRaiser(MMD_ShoulderRightName).pos.y
+    GetNodeByNameRaiser("ShoulderP_R").pos = GetNodeByNameRaiser("ShoulderP_R").pos + rt.Point3(0.0, RightShoulderOffset/2.0, 0.0)
+    GetNodeByNameRaiser(MMD_ShoulderRightName).pos = GetNodeByNameRaiser(MMD_ShoulderRightName).pos + rt.Point3(0.0, RightShoulderOffset/2.0, 0.0)
+    
+    ##### Shoulder Final Alignment
+    GetNodeByNameRaiser(MMD_ShoulderLeftName).pos = GetNodeByNameRaiser(GOH_ShoulderLeftName).pos
+    GetNodeByNameRaiser(MMD_ShoulderRightName).pos = GetNodeByNameRaiser(GOH_ShoulderRightName).pos
+
+    ### Lower body alignment
+    #### UpperLeg: Scaling Y -> Rotation YZ -> Rotation XZ
+    #### UpperLeg Scaling
+    AlignBoneLength(MMD_UpperLegLeft, GOH_UpperLegLeft, UpperLegScalingAxis, OtherAxisScaleFactor=(1/3))
+    AlignBoneLength(MMD_UpperLegRight, GOH_UpperLegRight, UpperLegScalingAxis, OtherAxisScaleFactor=(1/3))
+    AlignBoneLength(MMD_UpperLegDLeft, GOH_UpperLegLeft, UpperLegScalingAxis, OtherAxisScaleFactor=(1/3))
+    AlignBoneLength(MMD_UpperLegDRight, GOH_UpperLegRight, UpperLegScalingAxis, OtherAxisScaleFactor=(1/3))
+
+    #### LowerLeg: Scaling Y -> Rotation YZ -> Rotation XZ
+    #### LowerLeg Scaling
+    LowerLegExpectedHeight = GetMeanPosFromNodeNameList([MMD_LowerLegLeft[0], MMD_LowerLegRight[0], MMD_LowerLegDLeft[0], MMD_LowerLegDRight[0]]).z
+    LowerLegCurrentHeight = LowerLegExpectedHeight - MMD_Mesh.min.z
+    LowerLegScaling = LowerLegExpectedHeight / LowerLegCurrentHeight
+    for CurrentBoneName in [MMD_LowerLegLeft[0], MMD_LowerLegRight[0], MMD_LowerLegDLeft[0], MMD_LowerLegDRight[0]]:
+        rt.scale(GetNodeByNameRaiser(CurrentBoneName), rt.Point3(LowerLegScaling**(1/4), LowerLegScaling**(1/4), LowerLegScaling))
+
+    ## UpperLeg Re-Rotation To Match Foot Pos
+    GOH_LegFinalLeft = ("Leg_L", "GFA_MWT_SKE_foot3L")
+    GOH_LegFinalRight = ("Leg_R", "GFA_MWT_SKE_foot3R")
+
+    MMD_LegFinalLeft = ("Leg_L", "Ankle_L")
+    MMD_LegFinalRight = ("Leg_R", "Ankle_R")
+    MMD_LegFinalDLeft = ("LegD_L", "AnkleD_L") # Why is there a "D" postfixed version?
+    MMD_LegFinalDRight = ("LegD_R", "AnkleD_R") # Why is there a "D" postfixed version?
+
+    AlignBoneRotationOnPlane(MMD_LegFinalLeft, GOH_LegFinalLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalLeft, GOH_LegFinalLeft, "XZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalDLeft, GOH_LegFinalLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalDLeft, GOH_LegFinalLeft, "XZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalRight, GOH_LegFinalRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalRight, GOH_LegFinalRight, "XZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalDRight, GOH_LegFinalRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_LegFinalDRight, GOH_LegFinalRight, "XZ")
+
+    ## Normalize Foot Scale
+    NormalizeScaleBreakLink(MMD_LowerLegLeft[1])
+    NormalizeScaleBreakLink(MMD_LowerLegRight[1])
+    NormalizeScaleBreakLink(MMD_LowerLegDLeft[1])
+    NormalizeScaleBreakLink(MMD_LowerLegDRight[1])
+
+    #### Align UpperArm
+    ### UpperArm
+    GOH_UpperArmLeft = ("GFA_MWT_SKE_Hand1L", "GFA_MWT_SKE_Hand2L")
+    GOH_UpperArmRight = ("GFA_MWT_SKE_Hand1R", "GFA_MWT_SKE_Hand2R")
+
+    MMD_UpperArmLeft = ("Arm_L", "Elbow_L")
+    MMD_UpperArmRight = ("Arm_R", "Elbow_R")
+
+    UpperArmScalingAxis = "Y"
+
+    ## UpperArm: Scaling Y -> Rotation YZ -> Rotation XZ
+    ### UpperArm Scaling
+    AlignBoneLength(MMD_UpperArmLeft, GOH_UpperArmLeft, UpperArmScalingAxis)
+    AlignBoneLength(MMD_UpperArmRight, GOH_UpperArmRight, UpperArmScalingAxis)
+
+    ### UpperArm Rotation (YZ -> XZ)
+    AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_UpperArmLeft, GOH_UpperArmLeft, "YZ")
+
+    AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_UpperArmRight, GOH_UpperArmRight, "YZ")
+
+    ### LowerArm
+    GOH_LowerArmLeft = ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Hand_rot1L")
+    GOH_LowerArmLeft_LengthOnly =  ("GFA_MWT_SKE_Hand2L", "GFA_MWT_SKE_Palm4L_hide")
+    GOH_LowerArmRight = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Hand_rot1R")
+    GOH_LowerArmRight_LengthOnly = ("GFA_MWT_SKE_Hand2R", "GFA_MWT_SKE_Palm3R") # The Original model Is ***King not symmetrical!!!!!!
+    
+    MMD_LowerArmLeft = ("Elbow_L", "Wrist_L")
+    MMD_LowerArmLeft_LengthOnly =  ("Elbow_L", "MiddleFinger2_L")
+    MMD_LowerArmRight = ("Elbow_R", "Wrist_R")
+    MMD_LowerArmRight_LengthOnly = ("Elbow_R", "MiddleFinger2_R") # The Original model Is ***King not symmetrical!!!!!!
+
+    LowerArmScalingAxis = "Y"
+
+    ## LowerArm: Scaling Y -> Rotation YZ -> Rotation XZ
+    ### LowerArm Scaling
+    AlignBoneLength(MMD_LowerArmLeft_LengthOnly, GOH_LowerArmLeft_LengthOnly, LowerArmScalingAxis)
+    AlignBoneLength(MMD_LowerArmRight_LengthOnly, GOH_LowerArmRight_LengthOnly, LowerArmScalingAxis)
+
+    ### LowerArm Rotation (YZ -> XZ)
+    AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_LowerArmLeft, GOH_LowerArmLeft, "XY")
+
+    AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_LowerArmRight, GOH_LowerArmRight, "XY")
+
+    ### ReAlign Upper Arm
+    AlignBoneRotationOnPlane([MMD_UpperArmLeft[0], MMD_LowerArmLeft[1]], [MMD_UpperArmLeft[0], GOH_LowerArmLeft[1]], "XY")
+    AlignBoneRotationOnPlane([MMD_UpperArmLeft[0], MMD_LowerArmLeft[1]], [MMD_UpperArmLeft[0], GOH_LowerArmLeft[1]], "YZ")
+
+    AlignBoneRotationOnPlane([MMD_UpperArmRight[0], MMD_LowerArmRight[1]], [MMD_UpperArmRight[0], GOH_LowerArmRight[1]], "XY")
+    AlignBoneRotationOnPlane([MMD_UpperArmRight[0], MMD_LowerArmRight[1]], [MMD_UpperArmRight[0], GOH_LowerArmRight[1]], "YZ")
+
+    # Arm Further Fixing
+    if MMD_Source_Config == "GF2":
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 2.0, "XY")
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmLeft[0]), 1.25, "YZ")
+        ApplyRotationOnPlane(GetNodeByNameRaiser(MMD_UpperArmRight[0]), -1.25, "YZ")
+    
+    ### Normalize Hand scale
+    NormalizeScaleBreakLinkEvenScale(["Wrist_L", "Wrist_R"])
+    
+    ### FingerAlignment
+    MMD_IndexFinger_L1 = ("IndexFinger1_L", "IndexFinger2_L")
+    MMD_IndexFinger_L2 = ("IndexFinger2_L", "IndexFinger3_L")
+    MMD_MiddleFinger_L1 = ("MiddleFinger1_L", "MiddleFinger2_L")
+    MMD_MiddleFinger_L2 = ("MiddleFinger2_L", "MiddleFinger3_L")
+    MMD_LittleFinger_L1 = ("LittleFinger1_L", "LittleFinger2_L")
+    MMD_LittleFinger_L2 = ("LittleFinger2_L", "LittleFinger3_L")
+    MMD_RingFinger_L1 = ("RingFinger1_L", "RingFinger2_L")
+    MMD_RingFinger_L2 = ("RingFinger2_L", "RingFinger3_L")
+    MMD_Thumb_L1 = ("Thumb0_L", "Thumb1_L")
+    MMD_Thumb_L2 = ("Thumb1_L", "Thumb2_L")
+
+    MMD_IndexFinger_R1 = ("IndexFinger1_R", "IndexFinger2_R")
+    MMD_IndexFinger_R2 = ("IndexFinger2_R", "IndexFinger3_R")
+    MMD_MiddleFinger_R1 = ("MiddleFinger1_R", "MiddleFinger2_R")
+    MMD_MiddleFinger_R2 = ("MiddleFinger2_R", "MiddleFinger3_R")
+    MMD_LittleFinger_R1 = ("LittleFinger1_R", "LittleFinger2_R")
+    MMD_LittleFinger_R2 = ("LittleFinger2_R", "LittleFinger3_R")
+    MMD_RingFinger_R1 = ("RingFinger1_R", "RingFinger2_R")
+    MMD_RingFinger_R2 = ("RingFinger2_R", "RingFinger3_R")
+    MMD_Thumb_R1 = ("Thumb0_R", "Thumb1_R")
+    MMD_Thumb_R2 = ("Thumb1_R", "Thumb2_R")
+
+
+    # Align Thumb
+    if MMD_Source_Config == "GF2":
+        GOH_ThumbRotation = 20
+        LeftThumbPointingAxis = ["+", "X"]
+        RightThumbPointingAxis = ["+", "X"]
+        ThumbRotatingTargetAxis = ["-", "Z"]
+        AutoRotateFinger([MMD_Thumb_L1[0], MMD_Thumb_L2[0], MMD_Thumb_L2[1],], LeftThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
+        AutoRotateFinger([MMD_Thumb_R1[0], MMD_Thumb_R2[0], MMD_Thumb_R2[1],], RightThumbPointingAxis, ThumbRotatingTargetAxis, GOH_ThumbRotation)
+
+    ### Align and rotate other fingers.
+    AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_L1, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_L2, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_L1, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_L1, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_L2, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_L2, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_L1, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_L2, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_RingFinger_L1, MMD_LowerArmLeft, "YZ")
+    AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_LowerArmLeft, "XY")
+    AlignBoneRotationOnPlane(MMD_RingFinger_L2, MMD_LowerArmLeft, "YZ")
+
+    AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_R1, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_IndexFinger_R2, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_R1, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_R1, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_R2, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_MiddleFinger_R2, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_R1, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_LittleFinger_R2, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_RingFinger_R1, MMD_LowerArmRight, "YZ")
+    AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "XY")
+    AlignBoneRotationOnPlane(MMD_RingFinger_R2, MMD_LowerArmRight, "YZ")
+
+    LeftHandPointingAxis = ["+", "Y"]
+    RightHandPointingAxis = ["-", "Y"]
+    RotatingTargetAxis = ["-", "Z"]
+    GOH_FingerRotation = 25 # ?
+
+    AutoRotateFinger([MMD_IndexFinger_L1[0], MMD_IndexFinger_L2[0], MMD_IndexFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_MiddleFinger_L1[0], MMD_MiddleFinger_L2[0], MMD_MiddleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
+    AutoRotateFinger([MMD_RingFinger_L1[0], MMD_RingFinger_L2[0], MMD_RingFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_LittleFinger_L1[0], MMD_LittleFinger_L2[0], MMD_LittleFinger_L2[1],], LeftHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+
+    AutoRotateFinger([MMD_IndexFinger_R1[0], MMD_IndexFinger_R2[0], MMD_IndexFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation)
+    AutoRotateFinger([MMD_MiddleFinger_R1[0], MMD_MiddleFinger_R2[0], MMD_MiddleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.2)
+    AutoRotateFinger([MMD_RingFinger_R1[0], MMD_RingFinger_R2[0], MMD_RingFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.3)
+    AutoRotateFinger([MMD_LittleFinger_R1[0], MMD_LittleFinger_R2[0], MMD_LittleFinger_R2[1],], RightHandPointingAxis, RotatingTargetAxis, GOH_FingerRotation * 1.4)
+    
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -35, "XY")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), 35, "XY") 
+	
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), 10, "YZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -10, "YZ")
+	
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_L"), -15, "XZ")
+    ApplyRotationOnPlane(GetNodeByNameRaiser("Wrist_R"), -15, "XZ")
+
+    print("骨骼对齐完成 (Step2_01 Implementation)。")
+
+# ==============================================================================
+# 主流程
+# ==============================================================================
+def process_files():
+    if not os.path.exists(input_dir):
+        print("目录不存在: " + input_dir)
+        return
+
+    print("开始扫描目录: " + input_dir)
+    
+    for root, dirs, files in os.walk(input_dir):
+        for filename in files:
+            if filename.lower().endswith("_merged_01.max"):
+                file_full_path = os.path.join(root, filename)
+                print("=========================================")
+                print("发现目标文件: " + filename)
+                
+                try:
+                    rt.loadMaxFile(file_full_path, quiet=True)
+                except Exception as e:
+                    print("打开文件失败: " + str(e))
+                    continue
+
+                # 0. 预处理：提取所有后缀为_mesh且无子节点的物体到根层级
+                try:
+                    nodes_to_extract = []
+                    for node in rt.objects:
+                        # 安全获取名称
+                        n_name = node.name
+                        if n_name.lower().endswith("_mesh") and len(node.children) == 0:
+                            if node.parent is not None:
+                                nodes_to_extract.append(node)
+                    
+                    if len(nodes_to_extract) > 0:
+                        print("发现 {} 个需要提取的 Mesh 节点...".format(len(nodes_to_extract)))
+                        for node in nodes_to_extract:
+                            print("提取 Mesh 节点到根目录: " + str(node.name))
+                            node.parent = None
+                except Exception as e:
+                    print("预处理 Mesh 节点失败: " + str(e))
+
+                # 1. 检查根节点结构
+                root_nodes = [node for node in rt.objects if node.parent == None]
+                if len(root_nodes) != 3:
+                    print("根节点数量不为 3，跳过。")
+                    continue
+                
+                mmd_root_name = None
+                mmd_mesh_name = None
+                
+                has_mesh_suffix = False
+                has_gfa_prefix = False
+                
+                for node in root_nodes:
+                    node_name = node.name
+                    if node_name.lower().endswith("_mesh"):
+                        mmd_mesh_name = node_name
+                        has_mesh_suffix = True
+                    elif node_name.startswith("GFA_MWT_SKE_"):
+                        has_gfa_prefix = True
+                    else:
+                        mmd_root_name = node_name
+                
+                if not (has_mesh_suffix and has_gfa_prefix and mmd_root_name):
+                    print("根节点结构不满足要求，跳过。")
+                    print("Found: Mesh: {}, GFA: {}, Other: {}".format(mmd_mesh_name, has_gfa_prefix, mmd_root_name))
+                    continue
+                
+                print("目标锁定: Root={}, Mesh={}".format(mmd_root_name, mmd_mesh_name))
+                
+                # 2. 执行骨骼对齐
+                try:
+                    execute_alignment(mmd_root_name, mmd_mesh_name)
+
+                    # ==========================================================
+                    # 插入功能：重置蒙皮流程
+                    # ==========================================================
+                    print("执行蒙皮重置流程...")
+                    
+                    rt.clearSelection()
+                    mmd_mesh = rt.getNodeByName(mmd_mesh_name)
+                    rt.select(mmd_mesh)
+                    
+                    # 提取蒙皮数据 (生成 SkinData_... 网格)
+                    rt.execute("SkinUtils.ExtractSkinData $")
+                    skin_data_mesh_name = "SkinData_" + mmd_mesh_name
+                    skin_data_mesh = rt.getNodeByName(skin_data_mesh_name)
+                    
+                    # 克隆物体
+                    cloned_mesh = rt.copy(mmd_mesh)
+                    cloned_mesh.name = mmd_mesh_name + "001"
+                    
+                    # 塌陷全部
+                    rt.collapseStack(mmd_mesh)
+                    
+                    # 添加蒙皮包裹修改器
+                    skin_wrap_mod = rt.Skin_Wrap()
+                    rt.addModifier(mmd_mesh, skin_wrap_mod)
+                    
+                    # 加入克隆物体到蒙皮包裹
+                    rt.select(mmd_mesh)
+                    # 设置为顶点模式 (Engine 1) 以获得更好精度
+                    skin_wrap_mod.engine = 1
+                    # 注意：MaxScript数组语法 #(item), 且需要传递节点对象
+                    cmd_add_mesh = '$.modifiers[#Skin_Wrap].meshList = #((getNodeByName "{}"))'.format(cloned_mesh.name)
+                    rt.execute(cmd_add_mesh)
+                    
+                    # 转换到蒙皮 (参数 0/off 表示不删除原修改器)
+                    # 修正：直接调用 convertToSkin，去除错误的接口名 meshDeformOps
+                    rt.execute('$.modifiers[#Skin_Wrap].convertToSkin off')
+                    
+                    # 强制刷新一下，确保修改器堆栈更新
+                    rt.redrawViews()
+                    
+                    # 删除蒙皮包裹修改器
+                    rt.deleteModifier(mmd_mesh, skin_wrap_mod)
+                    
+                    # 删除克隆物体
+                    rt.delete(cloned_mesh)
+                    
+                    # 从网格导入蒙皮数据
+                    rt.select(mmd_mesh)
+                    # 再次调整参数顺序：根据报错，第三个参数期望Boolean
+                    # 尝试顺序: <MatchByName> <RemoveSource> <MatchByTopology> <Threshold> <Interpolation> <Target> <Source>
+                    cmd_import_skin = 'SkinUtils.ImportSkinData (getNodeByName "{}") (getNodeByName "{}")'.format(mmd_mesh_name, skin_data_mesh_name)
+                    # cmd_import_skin = 'SkinUtils.ImportSkinDataNoDialog true false false 0.0 0 (getNodeByName "{}") (getNodeByName "{}")'.format(mmd_mesh_name, skin_data_mesh_name)
+                    rt.execute(cmd_import_skin)
+                    
+                    # 删除提取的蒙皮数据网格
+                    rt.delete(skin_data_mesh)
+                    
+                    rt.clearSelection()
+                    print("蒙皮重置流程完成。")
+                    # ==========================================================
+                    
+                    # 另存为 _Aligned
+                    aligned_filename = re.sub(r'_merged_01\.max$', '_Aligned_01.max', filename, flags=re.IGNORECASE)
+                    aligned_full_path = os.path.join(root, aligned_filename)
+                    rt.saveMaxFile(aligned_full_path, clearNeedSaveFlag=True, useNewFile=True, quiet=True)
+                    print("已保存: " + aligned_filename)
+                    
+                except Exception as e:
+                    print("骨骼对齐失败: " + repr(e))
+                    continue
+
+    print("=========================================")
+    print("批量处理完成。")
+
+if __name__ == "__main__":
+    process_files()
